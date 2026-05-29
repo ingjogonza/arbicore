@@ -34,6 +34,11 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Dev runtime logs
+backend.log
+frontend.log
+nul
+
 # Cache
 .cache/
 *.tsbuildinfo

@@ -1,0 +1,6 @@
+# CryptoInvestor Trading Robot Dependencies
+# Install: pip install -r requirements.txt
+
+# TODO: add actual trading libraries when strategy is implemented
+# python-binance>=1.0.19
+# ccxt>=4.0.0

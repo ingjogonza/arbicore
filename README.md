@@ -1,127 +1,259 @@
-# CryptoInvestor — Automated Crypto Trading Platform
+# CryptoInvestor
 
-A premium fintech web application for automated cryptocurrency trading via Binance API. No-custodial, transparent 7% fee on withdrawn profits only.
+Plataforma de trading algorítmico automatizado para Binance. Frontend en React + Vite, backend en Fastify + MongoDB, autenticación con Supabase Auth.
 
-## Tech Stack
+## Stack Tecnológico
 
-- **React 18** + TypeScript
-- **Tailwind CSS** for styling
-- **React Router DOM** for navigation
-- **Recharts** for equity curve visualization
-- **Lucide React** for icons
-- **Vite** for build tooling
+| Capa | Tecnología |
+|------|-----------|
+| Frontend | React 18, Vite, TypeScript, Tailwind CSS, Lucide React, Recharts |
+| Auth | Supabase Auth (PostgreSQL) |
+| Backend | Fastify 4, TypeScript, Node.js |
+| Base de datos | MongoDB Atlas (operacional) |
+| Encriptación | AES-256-GCM con master key |
+| Robot | Python 3 (placeholder para trading) |
 
-## Project Structure
+## Estructura del Proyecto
 
 ```
 cryptoinvestor/
-├── index.html
-├── package.json
-├── postcss.config.js
-├── tailwind.config.js
-├── tsconfig.json
-├── tsconfig.node.json
-├── vite.config.ts
-└── src/
-    ├── App.tsx                          # Main router
-    ├── main.tsx                         # Entry point
-    ├── index.css                        # Global styles
-    ├── types/
-    │   └── index.ts                     # All TypeScript interfaces
-    ├── data/
-    │   └── mock.ts                      # Mock data (user, trades, withdrawals, equity)
-    ├── hooks/
-    │   ├── useTheme.tsx                 # Light/Dark mode context
-    │   └── useTrading.tsx               # Global trading state context
-    ├── components/
-    │   ├── ui/                          # Reusable UI components
-    │   │   ├── Button.tsx
-    │   │   ├── Input.tsx
-    │   │   ├── Card.tsx
-    │   │   ├── Badge.tsx
-    │   │   ├── Modal.tsx
-    │   │   ├── Alert.tsx
-    │   │   └── KPICard.tsx
-    │   └── layout/                      # Layout components
-    │       ├── Sidebar.tsx
-    │       ├── TopBar.tsx
-    │       └── DashboardLayout.tsx
-    └── screens/                         # Page components
-        ├── OnboardingScreen.tsx
-        ├── ConnectScreen.tsx
-        ├── DashboardScreen.tsx
-        ├── WithdrawModal.tsx
-        ├── WithdrawalsScreen.tsx
-        └── SettingsScreen.tsx
+├── src/                          # Frontend React
+│   ├── contexts/AuthContext.tsx   # Estado de auth (login, register, 2FA, forgot password)
+│   ├── screens/                 # Pantallas (Login, Register, Dashboard, Settings, etc.)
+│   ├── components/                # Componentes reutilizables (Button, Alert, Card, etc.)
+│   ├── hooks/                     # Custom hooks (useTrading, useTheme)
+│   └── types/                     # Tipos compartidos
+├── backend/                      # Backend Fastify
+│   ├── src/
+│   │   ├── config/              # Env validation, database, supabase client
+│   │   ├── services/            # Business logic (encryption, keys, 2FA, profiles)
+│   │   ├── routes/              # HTTP routes (keys, legal docs, auth, health)
+│   │   ├── plugins/             # CORS, auth, rate limit, mTLS, logger
+│   │   └── index.ts             # Dual server bootstrap (public + robot)
+│   ├── scripts/generate-certs.sh # OpenSSL cert generator for mTLS
+│   └── .env.example             # Backend env vars
+├── robot/                        # Python trading robot
+│   ├── main.py                   # Consumes decrypted keys via mTLS
+│   └── requirements.txt
+├── .env                          # Frontend env vars (Supabase, API base)
+├── .env.example                  # Template
+└── dev-servers.js               # Dev runner: backend + frontend in parallel
 ```
 
-## Quick Start
+## Requisitos Previos
+
+- Node.js ≥ 18
+- MongoDB Atlas (o local)
+- Supabase project (gratis en supabase.com)
+- Python 3.11+ (solo para el robot)
+
+## Setup paso a paso
+
+### 1. Clonar e instalar dependencias
 
 ```bash
-# 1. Create project with Vite
-npm create vite@latest cryptoinvestor -- --template react-ts
+git clone <repo-url>
 cd cryptoinvestor
+npm install
+cd backend && npm install && cd ..
+```
 
-# 2. Install dependencies
-npm install react-router-dom recharts lucide-react clsx tailwind-merge
+### 2. Configurar Supabase
 
-# 3. Install dev dependencies
-npm install -D tailwindcss postcss autoprefixer
+1. Crear proyecto en [supabase.com](https://supabase.com)
+2. Ir a **Authentication → Providers → Email** → asegurar que **Confirm email** está **ON**
+3. Ir a **SQL Editor** → ejecutar:
 
-# 4. Copy all files from this project into your directory
-# (Replace the generated src/ folder and config files)
+```sql
+-- Crear tabla profiles con trigger
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  first_name TEXT,
+  last_name TEXT,
+  email TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-# 5. Start development server
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, first_name, last_name, email)
+  VALUES (
+    NEW.id,
+    NEW.raw_user_meta_data->>'first_name',
+    NEW.raw_user_meta_data->>'last_name',
+    NEW.email
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
+```
+
+4. Copiar **Project URL**, **anon key**, y **service role key** desde **Project Settings → API**
+
+### 3. Configurar variables de entorno
+
+**Frontend** — copiar `.env.example` a `.env` y completar:
+
+```bash
+cp .env.example .env
+```
+
+```
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_ANON_KEY=tu-anon-key
+VITE_API_BASE_URL=http://localhost:3000
+```
+
+**Backend** — copiar `backend/.env.example` a `backend/.env` y completar:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+```
+PORT=3000
+ROBOT_PORT=3001
+MONGODB_URI=mongodb+srv://usuario:pass@cluster.mongodb.net/
+SUPABASE_URL=https://tu-proyecto.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=tu-service-role-key
+MASTER_KEY=tu-master-key-base64
+CORS_ORIGIN=http://localhost:5173
+```
+
+Generar `MASTER_KEY`:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+### 4. Generar certificados mTLS (opcional, para producción)
+
+```bash
+cd backend && ./scripts/generate-certs.sh
+```
+
+Esto crea `backend/certs/ca.crt`, `server.crt`, `server.key`, `robot.crt`, `robot.key`.
+
+### 5. Levantar en desarrollo
+
+```bash
+# Opción A: usar el dev runner
+node dev-servers.js
+
+# Opción B: manual (dos terminales)
+# Terminal 1:
+cd backend && npx ts-node src/index.ts
+# Terminal 2:
 npm run dev
 ```
 
-## Features
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:3000
+- Robot API: http://localhost:3001 (mTLS si certs configurados)
 
-### 6 Screens
-| Route | Screen | Description |
-|-------|--------|-------------|
-| `/` | **Onboarding** | Hero, 3-step process, trust banner, disclaimer |
-| `/connect` | **API Connection** | Key inputs, security checkbox, status badges |
-| `/dashboard` | **Dashboard** | 5 KPIs, equity chart, bot panel, trades table |
-| `/withdraw` | **Withdraw Modal** | 93%/7% breakdown, visual split, double confirmation |
-| `/withdrawals` | **History** | Full table with fees, wallets, tx hashes |
-| `/settings` | **Legal/Settings** | 4 legal docs, danger zone, account settings |
+### 6. Compilar para producción
 
-### Design System
-- **Colors**: Teal accent (#0D9488), slate neutrals, semantic colors
-- **Typography**: Inter font, clear hierarchy
-- **Components**: Button, Input, Card, Badge, Modal, Alert, KPICard
-- **Themes**: Light + Dark mode toggle
-- **Responsive**: Mobile-first, breakpoints at 640px, 1024px, 1440px
+```bash
+# Frontend
+npm run build
 
-### Business Logic
-- Fee 7% only on withdrawn profits
-- 93% to client, 7% to platform
-- No custody: funds always in user's Binance
-- Mock data for development
-- Context-based global state management
-
-## Customization
-
-### Changing Colors
-Edit `tailwind.config.js`:
-```js
-colors: {
-  teal: {
-    600: '#YOUR_COLOR',
-  }
-}
+# Backend
+cd backend && npm run build && npm start
 ```
 
-### Adding Real API
-Replace mock data in `src/hooks/useTrading.tsx` with actual API calls.
+## Funcionalidades
 
-### Binance Integration
-The API connection screen is ready for real integration. Add:
-- API key validation
-- Permission checking
-- WebSocket for real-time data
+### Autenticación
+- ✅ Registro con email + 4 documentos legales obligatorios
+- ✅ Verificación de email vía Supabase
+- ✅ Login con email/password
+- ✅ Recuperar contraseña (forgot password)
+- ✅ 2FA TOTP con QR code (Google Authenticator, Authy)
+- ✅ JWT en React state (sin localStorage)
+- ✅ Perfil de usuario cacheado en MongoDB
 
-## License
+### Seguridad
+- ✅ AES-256-GCM para claves API en reposo
+- ✅ mTLS entre backend y robot Python
+- ✅ Rate limiting por usuario/IP
+- ✅ Structured logging con redacción de campos sensibles
+- ✅ CORS configurado para frontend
 
-MIT — Built for demonstration purposes.
+### API Endpoints
+
+| Método | Endpoint | Auth | Descripción |
+|--------|----------|------|-------------|
+| GET | `/health` | No | Health check |
+| POST | `/api/keys` | JWT | Guardar claves API encriptadas |
+| GET | `/api/keys/status` | JWT | Verificar si tiene claves |
+| DELETE | `/api/keys` | JWT | Eliminar claves |
+| POST | `/api/legal-docs/accept` | JWT | Aceptar documento legal |
+| GET | `/api/legal-docs/status` | JWT | Estado de documentos |
+| GET | `/api/legal-docs/required` | No | Lista de docs requeridos |
+| POST | `/api/auth/2fa/setup` | JWT | Iniciar setup 2FA |
+| POST | `/api/auth/2fa/verify` | JWT | Verificar y activar 2FA |
+| POST | `/api/auth/2fa/disable` | JWT | Desactivar 2FA |
+| GET | `/api/auth/2fa/status` | JWT | Estado 2FA |
+| GET | `/api/keys/:userId` | mTLS | Claves desencriptadas para robot |
+
+### Robot Python
+
+```bash
+cd robot
+pip install -r requirements.txt
+
+# Configurar env vars
+export ROBOT_BACKEND_URL=https://localhost:3001
+export ROBOT_USER_ID=tu-user-id
+export ROBOT_CERT=../backend/certs/robot.crt
+export ROBOT_KEY=../backend/certs/robot.key
+export ROBOT_CA=../backend/certs/ca.crt
+
+python main.py
+```
+
+## Documentos Legales
+
+La plataforma requiere aceptación de 4 documentos antes de operar:
+
+1. **Términos de Servicio**
+2. **Divulgación de Riesgos**
+3. **Autorización de API**
+4. **Política de No Custodia**
+
+Todos se trackean en MongoDB con timestamp e IP del usuario.
+
+## Desarrollo
+
+### Convenciones
+- UI en **español**
+- Tipos TypeScript estrictos (`strict: true`)
+- Alert component: solo acepta `children`, `variant?`, `icon?` — **no acepta className**
+- Commits en inglés, UI copy en español
+
+### Scripts útiles
+
+```bash
+# Test E2E backend
+npx ts-node backend/src/test-e2e.ts
+
+# Test full auth flow
+npx ts-node backend/src/test-full-e2e.ts
+
+# Verificar compilación
+npx tsc --noEmit                 # frontend
+cd backend && npx tsc --noEmit   # backend
+```
+
+## Licencia
+
+Propietario — CryptoInvestor. Todos los derechos reservados.
