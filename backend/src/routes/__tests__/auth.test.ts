@@ -1,0 +1,167 @@
+// ============================================
+// AUTH (2FA) ROUTE TESTS
+// ============================================
+
+import { describe, it, before, after } from "node:test";
+import assert from "node:assert";
+import Fastify, { type FastifyInstance } from "fastify";
+import { connectDatabase, disconnectDatabase } from "../../config/database";
+import { supabaseAdmin } from "../../config/supabase";
+import { registerCors } from "../../plugins/cors";
+import { registerAuth } from "../../plugins/auth";
+import { setupErrorHandler } from "../../utils/errors";
+import { authRoutes } from "../auth";
+import { generateSecret, disable2FA } from "../../services/twoFactorService";
+import speakeasy from "speakeasy";
+
+describe("Auth 2FA Routes", () => {
+	let app: FastifyInstance;
+	let authToken: string;
+	let userId: string;
+
+	before(async () => {
+		await connectDatabase();
+
+		// Create test user
+		const { data: userData, error: userError } =
+			await supabaseAdmin.auth.admin.createUser({
+				email: `auth-2fa-test-${Date.now()}@cryptoinvestor.local`,
+				password: "TestPassword123!",
+				email_confirm: true,
+			});
+		if (userError) throw userError;
+		userId = userData.user!.id;
+
+		// Sign in to get token
+		const { data: signInData, error: signInError } =
+			await supabaseAdmin.auth.signInWithPassword({
+				email: userData.user!.email!,
+				password: "TestPassword123!",
+			});
+		if (signInError) throw signInError;
+		authToken = signInData.session!.access_token;
+
+		// Build test app
+		app = Fastify({ logger: false });
+		await registerCors(app);
+		await registerAuth(app);
+		setupErrorHandler(app);
+		await app.register(authRoutes);
+	});
+
+	after(async () => {
+		await app.close();
+		await supabaseAdmin.auth.admin.deleteUser(userId);
+		await disconnectDatabase();
+	});
+
+	it("POST /api/auth/2fa/setup without auth returns 401", async () => {
+		const res = await app.inject({
+			method: "POST",
+			url: "/api/auth/2fa/setup",
+		});
+		assert.strictEqual(res.statusCode, 401);
+	});
+
+	it("POST /api/auth/2fa/setup returns secret and QR code", async () => {
+		await disable2FA(userId);
+		const res = await app.inject({
+			method: "POST",
+			url: "/api/auth/2fa/setup",
+			headers: { authorization: `Bearer ${authToken}` },
+		});
+		assert.strictEqual(res.statusCode, 200);
+		const body = JSON.parse(res.body);
+		assert.strictEqual(body.success, true);
+		assert.ok(body.data.secret);
+		assert.ok(body.data.qrCodeUrl);
+	});
+
+	it("POST /api/auth/2fa/verify enables 2FA with valid token", async () => {
+		await disable2FA(userId);
+		const setup = await generateSecret(userId, "test@cryptoinvestor.local");
+		const token = speakeasy.totp({ secret: setup.secret, encoding: "base32" });
+
+		const res = await app.inject({
+			method: "POST",
+			url: "/api/auth/2fa/verify",
+			headers: { authorization: `Bearer ${authToken}` },
+			payload: { token },
+		});
+		assert.strictEqual(res.statusCode, 200);
+		const body = JSON.parse(res.body);
+		assert.strictEqual(body.success, true);
+		assert.strictEqual(body.data.enabled, true);
+	});
+
+	it("POST /api/auth/2fa/verify returns 400 for invalid token", async () => {
+		await disable2FA(userId);
+		await generateSecret(userId, "test@cryptoinvestor.local");
+
+		const res = await app.inject({
+			method: "POST",
+			url: "/api/auth/2fa/verify",
+			headers: { authorization: `Bearer ${authToken}` },
+			payload: { token: "000000" },
+		});
+		assert.strictEqual(res.statusCode, 400);
+		const body = JSON.parse(res.body);
+		assert.strictEqual(body.success, false);
+		assert.strictEqual(body.error.code, "INVALID_TOKEN");
+	});
+
+	it("GET /api/auth/2fa/status reflects enabled state", async () => {
+		await disable2FA(userId);
+
+		// Initially disabled
+		let res = await app.inject({
+			method: "GET",
+			url: "/api/auth/2fa/status",
+			headers: { authorization: `Bearer ${authToken}` },
+		});
+		let body = JSON.parse(res.body);
+		assert.strictEqual(body.data.enabled, false);
+
+		// Enable 2FA
+		const setup = await generateSecret(userId, "test@cryptoinvestor.local");
+		const token = speakeasy.totp({ secret: setup.secret, encoding: "base32" });
+		await app.inject({
+			method: "POST",
+			url: "/api/auth/2fa/verify",
+			headers: { authorization: `Bearer ${authToken}` },
+			payload: { token },
+		});
+
+		res = await app.inject({
+			method: "GET",
+			url: "/api/auth/2fa/status",
+			headers: { authorization: `Bearer ${authToken}` },
+		});
+		body = JSON.parse(res.body);
+		assert.strictEqual(body.data.enabled, true);
+	});
+
+	it("POST /api/auth/2fa/disable removes 2FA", async () => {
+		await disable2FA(userId);
+		const setup = await generateSecret(userId, "test@cryptoinvestor.local");
+		const token = speakeasy.totp({ secret: setup.secret, encoding: "base32" });
+
+		// enable first
+		await app.inject({
+			method: "POST",
+			url: "/api/auth/2fa/verify",
+			headers: { authorization: `Bearer ${authToken}` },
+			payload: { token },
+		});
+
+		const res = await app.inject({
+			method: "POST",
+			url: "/api/auth/2fa/disable",
+			headers: { authorization: `Bearer ${authToken}` },
+		});
+		assert.strictEqual(res.statusCode, 200);
+		const body = JSON.parse(res.body);
+		assert.strictEqual(body.success, true);
+		assert.strictEqual(body.data.disabled, true);
+	});
+});

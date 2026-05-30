@@ -10,7 +10,7 @@ export const ProtectedRoute: React.FC = () => {
 
 	if (state.loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+			<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950" role="status" aria-label="Loading">
 				<div className="w-8 h-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
 			</div>
 		);

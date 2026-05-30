@@ -48,3 +48,29 @@ coverage/
 
 # Local Pi runtime state
 .atl/
+
+# Engram local config (contains GEMINI_API_KEY in start script)
+.engram/
+
+# Engram server logs (may have \n-encoded filenames on Windows)
+*engram*.log
+
+# Pi Lens AI artifacts
+.pi-lens/
+**/.pi-lens/
+
+# Backend build output
+backend/dist/
+backend/dist-test/
+
+# Dev server scripts (local convenience)
+dev-servers.js
+start-backend.cjs
+
+# Temporary test scripts
+backend/src/test-*.ts
+backend/src/generate-recovery-link.ts
+backend/src/cleanup-tests.ts
+
+# Superpowers docs
+docs/

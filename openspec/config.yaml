@@ -1,0 +1,21 @@
+project:
+  name: cryptoinvestor
+  description: Plataforma de trading algorítmico con frontend React, backend Fastify y robot Python
+  stack:
+    frontend: React 18 + Vite + TypeScript + Tailwind CSS + Recharts
+    auth: Supabase Auth (PostgreSQL)
+    backend: Fastify + TypeScript + MongoDB
+    robot: Python (fuera de scope de backend)
+  conventions:
+    - Todos los artefactos SDD en openspec/
+    - Código en inglés, UI en español si es el idioma del producto
+    - Strict TDD cuando hay tests
+  strict_tdd: true
+  test_command_frontend: "npm test"
+  test_command_backend: "cd backend && npm test"
+  test_count: 186
+  test_suites: 18
+  coverage_frontend_lines: "77.27%"
+  coverage_frontend_branches: "76.16%"
+  coverage_backend_lines: "98.30%"
+  coverage_backend_branches: "91.04%"

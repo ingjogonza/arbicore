@@ -12,8 +12,9 @@ import { Badge } from "../components/ui/Badge";
 import { Alert } from "../components/ui/Alert";
 import { useTrading } from "../hooks/useTrading";
 import { useAuth } from "../contexts/AuthContext";
+import { env } from "../lib/env";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+const API_BASE = env.VITE_API_BASE_URL || "http://localhost:3000";
 
 export const ConnectScreen: React.FC = () => {
 	const navigate = useNavigate();

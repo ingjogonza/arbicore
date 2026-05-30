@@ -10,6 +10,7 @@ import {
 	useCallback,
 } from "react";
 import type { Session, AuthChangeEvent } from "@supabase/supabase-js";
+import { env } from "../lib/env";
 import { supabase } from "../lib/supabase";
 import type {
 	AuthState,
@@ -38,7 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
 	const [state, setState] = useState<AuthState>(initialState);
 	const [twoFactor, setTwoFactor] = useState<TwoFactorState>(initialTwoFactor);
-	const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+	const API_BASE = env.VITE_API_BASE_URL || "http://localhost:3000";
 
 	// Session recovery on mount + auth state listener
 	useEffect(() => {
