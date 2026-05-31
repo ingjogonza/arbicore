@@ -50,7 +50,7 @@ describe("RegisterScreen", () => {
 		);
 		await waitFor(() =>
 			expect(
-				screen.getByText(/ingresá tu nombre y apellido/i),
+				screen.getByText(/ingresa tu nombre y apellido/i),
 			).toBeInTheDocument(),
 		);
 	});

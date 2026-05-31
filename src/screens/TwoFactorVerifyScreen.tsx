@@ -19,7 +19,7 @@ export const TwoFactorVerifyScreen: React.FC = () => {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (token.length !== 6) {
-			setError("Ingresá el código de 6 dígitos.");
+			setError("Ingresa el código de 6 dígitos.");
 			return;
 		}
 		setLoading(true);
@@ -29,7 +29,7 @@ export const TwoFactorVerifyScreen: React.FC = () => {
 			if (ok) {
 				navigate("/dashboard");
 			} else {
-				setError("Código incorrecto. Intentá de nuevo.");
+				setError("Código incorrecto. Intenta de nuevo.");
 			}
 		} catch (err: any) {
 			setError(err.message || "Error al verificar código");
@@ -49,7 +49,7 @@ export const TwoFactorVerifyScreen: React.FC = () => {
 						Verificación en dos pasos
 					</h1>
 					<p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-						Ingresá el código de tu app de autenticación
+						Ingresa el código de tu app de autenticación
 					</p>
 				</div>
 

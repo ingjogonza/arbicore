@@ -30,7 +30,7 @@ export const LoginScreen: React.FC = () => {
 		setLocalError("");
 
 		if (!email.trim() || !password.trim()) {
-			setLocalError("Ingresá tu correo y contraseña.");
+			setLocalError("Ingresa tu correo y contraseña.");
 			return;
 		}
 
@@ -51,7 +51,7 @@ export const LoginScreen: React.FC = () => {
 		try {
 			await resendVerification();
 			setLocalError(
-				"Email de verificación reenviado. Revisá tu bandeja de entrada.",
+				"Email de verificación reenviado. Revisa tu bandeja de entrada.",
 			);
 		} catch {
 			// Error already in state
@@ -165,7 +165,7 @@ export const LoginScreen: React.FC = () => {
 				</form>
 
 				<p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
-					¿No tenés cuenta?{" "}
+					¿No tienes cuenta?{" "}
 					<Link
 						to="/register"
 						className="text-teal-600 hover:text-teal-700 font-medium"

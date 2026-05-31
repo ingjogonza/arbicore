@@ -233,7 +233,7 @@ describe("TwoFactorSetupScreen", () => {
 
 			await waitFor(() =>
 				expect(
-					screen.getByText("Código incorrecto. Intentá de nuevo."),
+					screen.getByText("Código incorrecto. Intenta de nuevo."),
 				).toBeInTheDocument(),
 			);
 		});

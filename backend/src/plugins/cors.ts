@@ -11,7 +11,10 @@ function parseOrigins(raw: string): string | string[] {
 	if (!trimmed.includes(",")) {
 		return trimmed;
 	}
-	return trimmed.split(",").map((o) => o.trim()).filter(Boolean);
+	return trimmed
+		.split(",")
+		.map((o) => o.trim())
+		.filter(Boolean);
 }
 
 export async function registerCors(app: FastifyInstance): Promise<void> {

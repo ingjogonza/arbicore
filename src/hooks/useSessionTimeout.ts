@@ -26,11 +26,7 @@ const DEFAULT_OPTIONS: Required<SessionTimeoutOptions> = {
 
 type ActivityEvent = "mousedown" | "keydown" | "touchstart";
 
-const ACTIVITY_EVENTS: ActivityEvent[] = [
-	"mousedown",
-	"keydown",
-	"touchstart",
-];
+const ACTIVITY_EVENTS: ActivityEvent[] = ["mousedown", "keydown", "touchstart"];
 
 export function useSessionTimeout(
 	onExpire: () => void,
@@ -67,9 +63,7 @@ export function useSessionTimeout(
 			setRemainingSeconds(0);
 		};
 
-		ACTIVITY_EVENTS.forEach((event) =>
-			window.addEventListener(event, handler),
-		);
+		ACTIVITY_EVENTS.forEach((event) => window.addEventListener(event, handler));
 
 		return () => {
 			ACTIVITY_EVENTS.forEach((event) =>
@@ -89,9 +83,7 @@ export function useSessionTimeout(
 			}
 
 			if (elapsed >= inactivityTimeout - warningBefore) {
-				const remaining = Math.ceil(
-					(inactivityTimeout - elapsed) / 1000,
-				);
+				const remaining = Math.ceil((inactivityTimeout - elapsed) / 1000);
 				setRemainingSeconds(remaining);
 				setShowWarning(true);
 			}

@@ -69,7 +69,7 @@ describe("LoginScreen", () => {
 		fireEvent.submit(form);
 		await waitFor(() =>
 			expect(
-				screen.getByText(/ingresá tu correo y contraseña/i),
+				screen.getByText(/ingresa tu correo y contraseña/i),
 			).toBeInTheDocument(),
 		);
 	});

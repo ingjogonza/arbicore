@@ -30,18 +30,14 @@ describe("SessionWarningModal", () => {
 
 	it('calls onExtend when "Seguir conectado" is clicked', () => {
 		const onExtend = jest.fn();
-		render(
-			<SessionWarningModal {...defaultProps} onExtend={onExtend} />,
-		);
+		render(<SessionWarningModal {...defaultProps} onExtend={onExtend} />);
 		fireEvent.click(screen.getByText("Seguir conectado"));
 		expect(onExtend).toHaveBeenCalledTimes(1);
 	});
 
 	it('calls onLogout when "Cerrar sesión ahora" is clicked', () => {
 		const onLogout = jest.fn();
-		render(
-			<SessionWarningModal {...defaultProps} onLogout={onLogout} />,
-		);
+		render(<SessionWarningModal {...defaultProps} onLogout={onLogout} />);
 		fireEvent.click(screen.getByText("Cerrar sesión ahora"));
 		expect(onLogout).toHaveBeenCalledTimes(1);
 	});

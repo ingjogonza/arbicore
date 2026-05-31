@@ -51,7 +51,7 @@ describe("ForgotPasswordScreen", () => {
 		);
 		await waitFor(() =>
 			expect(
-				screen.getByText(/ingresá tu correo electrónico/i),
+				screen.getByText(/ingresa tu correo electrónico/i),
 			).toBeInTheDocument(),
 		);
 	});
@@ -92,7 +92,7 @@ describe("ForgotPasswordScreen", () => {
 		);
 
 		await waitFor(() =>
-			expect(screen.getByText(/revisá tu correo/i)).toBeInTheDocument(),
+			expect(screen.getByText(/revisa tu correo/i)).toBeInTheDocument(),
 		);
 	});
 

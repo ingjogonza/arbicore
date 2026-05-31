@@ -72,11 +72,11 @@ export const RegisterScreen: React.FC = () => {
 		setLocalError("");
 
 		if (!firstName.trim() || !lastName.trim()) {
-			setLocalError("Ingresá tu nombre y apellido.");
+			setLocalError("Ingresa tu nombre y apellido.");
 			return;
 		}
 		if (!email.trim()) {
-			setLocalError("Ingresá tu correo electrónico.");
+			setLocalError("Ingresa tu correo electrónico.");
 			return;
 		}
 		if (password.length < 6) {
@@ -89,7 +89,7 @@ export const RegisterScreen: React.FC = () => {
 		}
 		if (!allDocsAccepted) {
 			setLocalError(
-				"Debés aceptar todos los documentos legales para continuar.",
+				"Debes aceptar todos los documentos legales para continuar.",
 			);
 			return;
 		}
@@ -232,7 +232,7 @@ export const RegisterScreen: React.FC = () => {
 							</h3>
 						</div>
 						<p className="text-xs text-slate-500 dark:text-slate-400">
-							Debés aceptar todos los documentos para operar en la plataforma.
+							Debes aceptar todos los documentos para operar en la plataforma.
 						</p>
 						{LEGAL_DOCS.map((doc) => (
 							<label
@@ -288,7 +288,7 @@ export const RegisterScreen: React.FC = () => {
 				</form>
 
 				<p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
-					¿Ya tenés cuenta?{" "}
+					¿Ya tienes cuenta?{" "}
 					<Link
 						to="/login"
 						className="text-teal-600 hover:text-teal-700 font-medium"

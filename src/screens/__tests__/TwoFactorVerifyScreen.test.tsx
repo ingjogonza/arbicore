@@ -96,7 +96,7 @@ describe("TwoFactorVerifyScreen", () => {
 		fireEvent.submit(input.closest("form")!);
 
 		expect(
-			screen.getByText("Ingresá el código de 6 dígitos."),
+			screen.getByText("Ingresa el código de 6 dígitos."),
 		).toBeInTheDocument();
 	});
 
@@ -125,7 +125,7 @@ describe("TwoFactorVerifyScreen", () => {
 
 		await waitFor(() =>
 			expect(
-				screen.getByText("Código incorrecto. Intentá de nuevo."),
+				screen.getByText("Código incorrecto. Intenta de nuevo."),
 			).toBeInTheDocument(),
 		);
 	});

@@ -182,7 +182,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 			setState((prev) => ({
 				...prev,
 				loading: false,
-				error: "No se pudo crear la cuenta. Intentá de nuevo.",
+				error: "No se pudo crear la cuenta. Intenta de nuevo.",
 			}));
 			throw new Error("User creation failed");
 		}

@@ -39,7 +39,7 @@ export const TwoFactorSetupScreen: React.FC = () => {
 
 	const handleVerify = async () => {
 		if (token.length !== 6) {
-			setError("Ingresá el código de 6 dígitos.");
+			setError("Ingresa el código de 6 dígitos.");
 			return;
 		}
 		setLoading(true);
@@ -50,7 +50,7 @@ export const TwoFactorSetupScreen: React.FC = () => {
 				setVerified(true);
 				setTimeout(() => navigate("/settings"), 2000);
 			} else {
-				setError("Código incorrecto. Intentá de nuevo.");
+				setError("Código incorrecto. Intenta de nuevo.");
 			}
 		} catch (err: any) {
 			setError(err.message || "Error al verificar código");

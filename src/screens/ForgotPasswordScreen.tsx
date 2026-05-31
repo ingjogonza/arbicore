@@ -21,7 +21,7 @@ export const ForgotPasswordScreen: React.FC = () => {
 		setLocalError("");
 
 		if (!email.trim()) {
-			setLocalError("Ingresá tu correo electrónico.");
+			setLocalError("Ingresa tu correo electrónico.");
 			return;
 		}
 
@@ -57,7 +57,7 @@ export const ForgotPasswordScreen: React.FC = () => {
 
 				{sent ? (
 					<Alert variant="success">
-						<span className="font-medium">Revisá tu correo</span>
+						<span className="font-medium">Revisa tu correo</span>
 						<p className="mt-1 text-sm">
 							Si el email está registrado, recibiste un enlace para restablecer
 							tu contraseña.
