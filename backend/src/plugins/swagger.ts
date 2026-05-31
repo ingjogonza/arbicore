@@ -18,7 +18,11 @@ export async function registerSwagger(app: FastifyInstance): Promise<void> {
 			servers: [
 				{
 					url: `http://localhost:${env.PORT}`,
-					description: "Development server",
+					description: "Local development",
+				},
+				{
+					url: "https://api.glsolutions.tech",
+					description: "Production (Raspberry Pi 5)",
 				},
 			],
 			components: {

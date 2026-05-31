@@ -7,7 +7,7 @@ import { supabaseAdmin } from "../config/supabase";
 import { getOrCacheProfile } from "../services/userProfileService";
 import { UnauthorizedError } from "../utils/errors";
 
-const PUBLIC_PATHS = ["/health", "/api/legal-docs/required"];
+const PUBLIC_PATHS = ["/health", "/api/legal-docs/required", "/docs"];
 
 export async function registerAuth(app: FastifyInstance): Promise<void> {
 	app.addHook(
