@@ -1,150 +1,133 @@
-# Contexto para configurar nginx + SSL en Raspberry Pi 5
+# Raspberry Pi 5 — CryptoInvestor en producción
 
 ## Escenario
 
-- **Server**: Raspberry Pi 5 con Ubuntu/Debian
-- **Usuario**: jorge
-- **Dominio**: api.glsolutions.tech (apunta a la IP de la casa)
-- **Container**: cryptoinvestor-backend corriendo con Docker en `/home/jorge/docker/cryptoinvestor-plataforma/`
-- **Backend**: Fastify escuchando en puerto 3000 (API pública, JWT) y 3001 (robot, mTLS local)
-- **Nginx**: ya instalado en el host (Raspberry), solo config default
+- **Server**: Raspberry Pi 5, IP local `192.168.100.43`
+- **ISP**: Entel (Santiago, Chile) — bloquea puertos no estándar
+- **Exposición pública**: Cloudflare Tunnel (no hay puertos abiertos en el router salvo 443/UDP para WireGuard)
+- **Orquestación**: Docker Compose master en `~/docker/docker-compose.yml`
 
-## Objetivo
+## Stack
 
-Hacer que `https://api.glsolutions.tech` sirva como reverse proxy hacia `http://localhost:3000` con SSL, para que el frontend y Postman accedan por un solo puerto (443).
+| Servicio | URL | Container |
+|---|---|---|
+| Frontend React | https://app.glsolutions.tech | `cryptoinvestor-frontend` (nginx:alpine) |
+| Backend API | https://api.glsolutions.tech | `cryptoinvestor-backend` (Fastify 4) |
+| Swagger UI | https://api.glsolutions.tech/docs | (mismo backend) |
+| Health check | https://api.glsolutions.tech/health | (mismo backend) |
+| Robot prod | interno | `cryptoinvestor` (Python) |
+| Robot dev | interno | `cryptoinvestor-dev` (Python) |
 
-## Lo que hay que hacer
-
-### 1. Certbot
-
-Verificar si está instalado:
-```bash
-which certbot
-```
-
-Si no:
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-```
-
-### 2. Archivo de sitio
-
-Crear `/etc/nginx/sites-available/api.glsolutions.tech`:
-
-```nginx
-server {
-    listen 80;
-    server_name api.glsolutions.tech;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name api.glsolutions.tech;
-
-    ssl_certificate /etc/letsencrypt/live/api.glsolutions.tech/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/api.glsolutions.tech/privkey.pem;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-### 3. Activar y certbot
+## Repositorio
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/api.glsolutions.tech /etc/nginx/sites-enabled/
-sudo certbot --nginx -d api.glsolutions.tech
-sudo nginx -t
-sudo systemctl reload nginx
+# Ruta en la Pi
+/home/jorge/docker/cryptoinvestor-plataforma/
+
+# GitHub
+git@github.com:ingjogonza/arbicore.git
 ```
 
-### 4. Firewall
-
-- Puerto 443 (https) abierto en el router, apuntando a la Raspberry
-- Puerto 80 también abierto (certbot necesita verificar el dominio)
-- Una vez funcional, se puede cerrar puerto 3000 si estaba abierto
-
-### 5. Docker-compose
-
-No necesita cambios. El container sigue escuchando en localhost:3000. Nginx proxy_pass hacia ahí.
-
-## Post-instalación
-
-Probar desde internet:
-```bash
-curl https://api.glsolutions.tech/health
-```
-
-Debería responder `{"success":true,"data":{"status":"ok",...}}`
+El repo contiene solo el código fuente. El `docker-compose.yml` del repo tiene **solo el backend**. El master compose que orquesta todo vive en `~/docker/docker-compose.yml` (portainer, n8n, wireguard, cloudflared, n8n, etc.).
 
 ## Frontend — app.glsolutions.tech
 
-Además de la API, se sirve el frontend React en un subdominio separado.
+### Arquitectura
 
-### 1. DNS
-
-Agregar un registro A para `app.glsolutions.tech` apuntando a la misma IP de la casa (la de la Raspberry).
-
-### 2. Nginx config
-
-Hay un archivo de referencia en `deploy/app.glsolutions.tech.nginx` dentro del repo. Copiarlo y activarlo:
-
-```bash
-sudo cp /home/jorge/docker/cryptoinvestor-plataforma/deploy/app.glsolutions.tech.nginx /etc/nginx/sites-available/app.glsolutions.tech
-sudo ln -s /etc/nginx/sites-available/app.glsolutions.tech /etc/nginx/sites-enabled/
-sudo certbot --nginx -d app.glsolutions.tech
-sudo nginx -t && sudo systemctl reload nginx
+```
+[Browser] → Cloudflare Tunnel → nginx:alpine (container)
+                                     │
+                                     ├── /usr/share/nginx/html ← dist/ (read-only)
+                                     └── /etc/nginx/conf.d/default.conf ← deploy/default.conf
 ```
 
-### 3. CORS — permitir app.glsolutions.tech en el backend
+Cloudflare Tunnel termina TLS en el edge. El container nginx solo escucha HTTP en puerto 80.
 
-La API en `api.glsolutions.tech` rechaza peticiones del frontend en `app.glsolutions.tech` si no está en `CORS_ORIGIN`. Hay que agregarlo al `.env` que usa Docker:
+### Config
+
+Archivo de referencia: `deploy/default.conf` — incluye:
+- Gzip para JS, CSS, JSON, SVG
+- Cacheo agresivo (`1 year`, `immutable`) para assets con hash en `/assets/`
+- SPA routing (`try_files $uri /index.html`)
+
+### Actualizar frontend
 
 ```bash
 cd /home/jorge/docker/cryptoinvestor-plataforma
-# Editar .env y agregar o actualizar:
-echo 'CORS_ORIGIN=http://localhost:5173,https://app.glsolutions.tech' >> .env
-# O con editor:
-# nano .env
-```
-
-Luego reiniciar el container:
-```bash
-docker compose down
-docker compose up -d
-```
-
-### 4. Build del frontend
-
-En la Raspberry, después de hacer `git pull`, compilar el frontend:
-
-```bash
-cd /home/jorge/docker/cryptoinvestor-plataforma
+git pull
 npm ci
 npm run build
+# No hace falta reiniciar el container nginx,
+# lee los archivos desde dist/ en tiempo real.
 ```
 
-Esto regenera `dist/` con las variables de producción (`VITE_API_BASE_URL=https://api.glsolutions.tech`).
-
-### 5. Verificar
+### Docker service standalone
 
 ```bash
-curl https://app.glsolutions.tech
-# Debería devolver el HTML del index.html
+# Para probar fuera del master compose:
+docker compose -f deploy/docker-compose.frontend.yml up -d
 ```
 
-Probar la conexión con la API desde el frontend:
+Requiere red `cryptoinvestor-network` creada (`docker network create cryptoinvestor-network`).
+
+## Backend — api.glsolutions.tech
+
+### Docker service
+
+El `docker-compose.yml` del repo levanta el backend. Las variables de entorno se pasan desde el `.env` en la raíz del repo:
+
+```env
+MONGODB_URI=mongodb+srv://...
+SUPABASE_URL=https://...
+SUPABASE_SERVICE_ROLE_KEY=...
+MASTER_KEY=...
+CORS_ORIGIN=https://app.glsolutions.tech
+```
+
+### Login desde Postman / cliente
+
 ```bash
-curl https://api.glsolutions.tech/health
-# Debería responder con JSON
+curl -X POST https://api.glsolutions.tech/auth/v1/token?grant_type=password \
+  -H "apikey: {SUPABASE_ANON_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"...","password":"..."}'
 ```
 
-## Nota sobre mTLS / robot
+El JWT devuelto se usa como `Authorization: Bearer {token}`.
 
-El robot (Python) se conecta directo al container por localhost:3001 con mTLS, sin pasar por nginx. No necesita cambios.
+### Swagger
+
+`https://api.glsolutions.tech/docs` — requiere JWT (excepto rutas listadas en `PUBLIC_PATHS`).
+
+## Robot Python
+
+Dos instancias:
+
+- `cryptoinvestor` — producción
+- `cryptoinvestor-dev` — desarrollo/testing
+
+Algoritmo: `traderbot_binance_macd_v9.py` (MACD para Binance, colaboración con Carlos Lameda).
+
+Canal de comunicación: puerto `3001` del backend (mTLS). No exponer públicamente.
+
+```bash
+# Actualizar solo el .py (sin rebuild de imagen):
+git pull
+docker compose restart cryptoinvestor-dev
+```
+
+## Acceso para desarrollo — WireGuard VPN
+
+- Endpoint: `glsolutions.tech:443` UDP
+- Split tunnel: solo `10.13.13.0/24` y `192.168.100.0/24`
+- Backend local: `http://192.168.100.43:3000`
+- Solicitar `.conf` o QR a Jorge.
+
+## Node.js
+
+Requiere **Node.js 22**. v20 no es compatible con `@supabase/realtime-js`.
+
+## Docker quirks conocidos
+
+- El `docker-compose.yml` del repo usa `npm install` en el Dockerfile en lugar de `npm ci` (por desync del lockfile).
+- Versiones pinneadas de `@fastify/swagger` y `@fastify/swagger-ui` para compatibilidad con Fastify 4.
