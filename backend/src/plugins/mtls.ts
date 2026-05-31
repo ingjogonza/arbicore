@@ -25,7 +25,7 @@ export function getTlsOptions(): {
 
 	try {
 		return {
-			key: readFileSync(resolve(certPath)),
+			key: readFileSync(resolve(keyPath)),
 			cert: readFileSync(resolve(certPath)),
 			ca: readFileSync(resolve(caPath)),
 			requestCert: true,
