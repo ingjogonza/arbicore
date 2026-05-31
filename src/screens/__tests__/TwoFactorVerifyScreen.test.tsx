@@ -90,7 +90,6 @@ describe("TwoFactorVerifyScreen", () => {
 		renderScreen();
 
 		const input = screen.getByRole("textbox");
-		const button = screen.getByRole("button", { name: /verificar/i });
 
 		// Button is disabled with <6 digits, so directly submit form
 		fireEvent.change(input, { target: { value: "123" } });

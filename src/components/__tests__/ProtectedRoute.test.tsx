@@ -15,7 +15,7 @@ import { useAuth } from '../../contexts/AuthContext';
 const MockDashboard = () => <div data-testid="dashboard">Dashboard</div>;
 const MockLogin = () => <div data-testid="login">Login</div>;
 
-const renderProtected = (authState: any, twoFactorState?: any) =>
+const renderProtected = (_authState: any, _twoFactorState?: any) =>
   render(
     <MemoryRouter initialEntries={['/dashboard']}>
       <Routes>
