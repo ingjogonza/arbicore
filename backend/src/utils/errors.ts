@@ -41,12 +41,32 @@ export class ConflictError extends ApiError {
 
 export function setupErrorHandler(app: FastifyInstance) {
 	app.setErrorHandler(
-		(error: Error, _request: FastifyRequest, reply: FastifyReply) => {
+		(
+			error: Error & {
+				statusCode?: number;
+				code?: string;
+				validation?: unknown[];
+			},
+			_request: FastifyRequest,
+			reply: FastifyReply,
+		) => {
 			if (error instanceof ApiError) {
 				reply.status(error.statusCode).send({
 					success: false,
 					error: {
 						code: error.code,
+						message: error.message,
+					},
+				});
+				return;
+			}
+
+			// Handle Fastify native validation errors (catch FST_ERR_VALIDATION)
+			if (error.validation || error.statusCode === 400) {
+				reply.status(400).send({
+					success: false,
+					error: {
+						code: "VALIDATION_ERROR",
 						message: error.message,
 					},
 				});
