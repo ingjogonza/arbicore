@@ -11,6 +11,8 @@ Plataforma de trading algorítmico automatizado para Binance. Frontend en React 
 | Backend | Fastify 4, TypeScript, Node.js |
 | Base de datos | MongoDB Atlas (operacional) |
 | Encriptación | AES-256-GCM con master key |
+| Documentación API | Swagger UI (via @fastify/swagger) |
+| Contenedores | Docker + docker-compose |
 | Robot | Python 3 (placeholder para trading) |
 
 ## Estructura del Proyecto
@@ -35,8 +37,14 @@ cryptoinvestor/
 ├── robot/                        # Python trading robot
 │   ├── main.py                   # Consumes decrypted keys via mTLS
 │   └── requirements.txt
-├── .env                          # Frontend env vars (Supabase, API base)
-├── .env.example                  # Template
+├── docker-compose.yml            # Backend stack (env vars via .env)
+├── backend/
+│   ├── Dockerfile                # Multi-stage: builder + production
+│   ├── .dockerignore
+│   ├── src/plugins/swagger.ts    # OpenAPI spec generator
+│   └── scripts/generate-certs.sh # OpenSSL cert generator for mTLS
+├── .env                          # Frontend + Docker env vars
+├── .env.example
 └── dev-servers.js               # Dev runner: backend + frontend in parallel
 ```
 
@@ -160,7 +168,22 @@ npm run dev
 - Backend API: http://localhost:3000
 - Robot API: http://localhost:3001 (mTLS si certs configurados)
 
-### 6. Compilar para producción
+### 6. OpenAPI / Swagger UI
+
+La API expone documentación interactiva en `/docs` (solo en el servidor público, puerto 3000):
+
+```bash
+# Una vez corriendo el backend, abrir:
+# http://localhost:3000/docs
+```
+
+Todos los endpoints tienen schemas OpenAPI con:
+- Tags de agrupación (Health, API Keys, 2FA, Legal Docs, Profile)
+- Schemas de request body y response
+- Indicador de autenticación requerida (JWT Bearer)
+- Botón **Try it out** para probar directamente desde el navegador
+
+### 7. Compilar para producción (sin Docker)
 
 ```bash
 # Frontend
@@ -168,6 +191,85 @@ npm run build
 
 # Backend
 cd backend && npm run build && npm start
+```
+
+## Deploy con Docker
+
+### Server requirements
+
+- Docker ≥ 24
+- docker-compose plugin (incluido con Docker Desktop / Docker Engine)
+- Acceso a MongoDB Atlas (o instancia propia)
+- Proyecto Supabase
+
+### 1. Clonar en el servidor
+
+```bash
+# Ruta recomendada: /opt/cryptoinvestor
+mkdir -p /opt/cryptoinvestor
+cd /opt/cryptoinvestor
+git clone https://github.com/ingjogonza/arbicore.git .
+```
+
+### 2. Configurar .env
+
+```bash
+cp .env.example .env
+# Editar .env con:
+# - MONGODB_URI
+# - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+# - MASTER_KEY (generar con el comando de abajo)
+# - CORS_ORIGIN (dominio del frontend)
+```
+
+Generar `MASTER_KEY`:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+### 3. Montar certificados mTLS
+
+```bash
+mkdir -p backend/certs
+# Copiar o generar: ca.crt, server.crt, server.key
+# El robot necesita: ca.crt, robot.crt, robot.key
+```
+
+### 4. Iniciar
+
+```bash
+docker compose up -d
+```
+
+El backend queda escuchando en:
+- **Puerto 3000** — API pública (JWT) con Swagger UI en `/docs`
+- **Puerto 3001** — API robot (mTLS) para el bot Python
+
+### 5. Verificar
+
+```bash
+curl http://localhost:3000/health
+# → {"success":true,"data":{"status":"ok",...}}
+
+# Swagger UI
+# http://<host>:3000/docs
+```
+
+### Arquitectura en producción
+
+```
+Servidor
+├── Container: cryptoinvestor-backend
+│   ├── :3000  → API pública (JWT)
+│   ├── :3001  → API robot (mTLS)
+│   └── certs/ → montados como volumen ro
+│
+├── Container: trading-robot (Python)
+│   ├── proceso siempre vivo
+│   └── GET /api/keys al arrancar → todas las claves activas
+│
+└── MongoDB Atlas (externo, vía URI)
 ```
 
 ## Funcionalidades
@@ -192,6 +294,8 @@ cd backend && npm run build && npm start
 
 | Método | Endpoint | Auth | Descripción |
 |--------|----------|------|-------------|
+| Método | Endpoint | Auth | Descripción |
+|--------|----------|------|-------------|
 | GET | `/health` | No | Health check |
 | POST | `/api/keys` | JWT | Guardar claves API encriptadas |
 | GET | `/api/keys/status` | JWT | Verificar si tiene claves |
@@ -203,9 +307,24 @@ cd backend && npm run build && npm start
 | POST | `/api/auth/2fa/verify` | JWT | Verificar y activar 2FA |
 | POST | `/api/auth/2fa/disable` | JWT | Desactivar 2FA |
 | GET | `/api/auth/2fa/status` | JWT | Estado 2FA |
-| GET | `/api/keys/:userId` | mTLS | Claves desencriptadas para robot |
+| GET | `/api/profile` | JWT | Perfil del usuario autenticado |
+| GET | `/docs` | No | Swagger UI (OpenAPI spec interactiva) |
+
+### Robot API (puerto 3001, mTLS)
+
+| Método | Endpoint | Auth | Descripción |
+|--------|----------|------|-------------|
+| GET | `/api/keys` | mTLS | Todas las claves activas desencriptadas |
+| GET | `/api/keys/:userId` | mTLS | Claves desencriptadas de un usuario |
 
 ### Robot Python
+
+El robot de trading es un **proceso siempre vivo** que:
+
+1. Al arrancar, pide `GET /api/keys` al backend vía mTLS
+2. Obtiene **todas las API keys activas** desencriptadas
+3. Las mantiene en memoria mientras opera
+4. No necesita polling, cache Redis ni renovación periódica
 
 ```bash
 cd robot
@@ -213,12 +332,27 @@ pip install -r requirements.txt
 
 # Configurar env vars
 export ROBOT_BACKEND_URL=https://localhost:3001
-export ROBOT_USER_ID=tu-user-id
 export ROBOT_CERT=../backend/certs/robot.crt
 export ROBOT_KEY=../backend/certs/robot.key
 export ROBOT_CA=../backend/certs/ca.crt
 
 python main.py
+```
+
+Ejemplo de respuesta de `GET /api/keys`:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "userId": "uuid-del-usuario",
+      "apiKey": "binance-api-key",
+      "secretKey": "binance-secret-key",
+      "label": "Binance"
+    }
+  ]
+}
 ```
 
 ## Documentos Legales
