@@ -14,6 +14,7 @@ import { registerRateLimit } from "./plugins/rateLimit";
 import { getTlsOptions } from "./plugins/mtls";
 import { configureLogger } from "./plugins/logger";
 import { setupErrorHandler } from "./utils/errors";
+import { registerSwagger } from "./plugins/swagger";
 import { healthRoutes } from "./routes/health";
 import { keysRoutes } from "./routes/keys";
 import { legalDocsRoutes } from "./routes/legalDocs";
@@ -37,6 +38,7 @@ async function buildPublicServer() {
 
 	configureLogger(app);
 
+	await registerSwagger(app);
 	await registerCors(app);
 	await registerAuth(app);
 	await registerRateLimit(app);

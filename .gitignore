@@ -74,3 +74,6 @@ backend/src/cleanup-tests.ts
 
 # Superpowers docs
 docs/
+
+# TLS / mTLS certificates (dev-generated, never commit to git)
+backend/certs/

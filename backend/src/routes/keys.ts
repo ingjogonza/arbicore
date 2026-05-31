@@ -20,57 +20,147 @@ const storeKeysSchema = z.object({
 
 export async function keysRoutes(app: FastifyInstance): Promise<void> {
 	// POST /api/keys — store encrypted API keys
-	app.post("/api/keys", async (request, reply) => {
-		if (!request.user) throw new UnauthorizedError();
-
-		const parsed = storeKeysSchema.safeParse(request.body);
-		if (!parsed.success) {
-			throw new ValidationError(
-				parsed.error.issues.map((i) => i.message).join("; "),
-			);
-		}
-
-		const { apiKey, secretKey, label } = parsed.data;
-		const doc = await storeApiKeys(
-			request.user.sub,
-			apiKey,
-			secretKey,
-			label || "Binance",
-		);
-
-		request.log.info(
-			{ userId: request.user.sub, action: "store_api_keys" },
-			"API keys stored",
-		);
-
-		reply.status(201).send({
-			success: true,
-			data: {
-				id: doc._id,
-				label: doc.label,
-				isActive: doc.isActive,
-				createdAt: doc.createdAt,
+	app.post(
+		"/api/keys",
+		{
+			schema: {
+				tags: ["API Keys"],
+				summary: "Store encrypted Binance API keys",
+				security: [{ bearerAuth: [] }],
+				body: {
+					type: "object",
+					required: ["apiKey", "secretKey"],
+					properties: {
+						apiKey: { type: "string", description: "Binance API key" },
+						secretKey: {
+							type: "string",
+							description: "Binance secret key (encrypted at rest)",
+						},
+						label: {
+							type: "string",
+							description: "Optional label (default: Binance)",
+						},
+					},
+				},
+				response: {
+					201: {
+						type: "object",
+						properties: {
+							success: { type: "boolean" },
+							data: {
+								type: "object",
+								properties: {
+									id: { type: "string" },
+									label: { type: "string" },
+									isActive: { type: "boolean" },
+									createdAt: { type: "string", format: "date-time" },
+								},
+							},
+						},
+					},
+				},
 			},
-		});
-	});
+		},
+		async (request, reply) => {
+			if (!request.user) throw new UnauthorizedError();
+
+			const parsed = storeKeysSchema.safeParse(request.body);
+			if (!parsed.success) {
+				throw new ValidationError(
+					parsed.error.issues.map((i) => i.message).join("; "),
+				);
+			}
+
+			const { apiKey, secretKey, label } = parsed.data;
+			const doc = await storeApiKeys(
+				request.user.sub,
+				apiKey,
+				secretKey,
+				label || "Binance",
+			);
+
+			request.log.info(
+				{ userId: request.user.sub, action: "store_api_keys" },
+				"API keys stored",
+			);
+
+			reply.status(201).send({
+				success: true,
+				data: {
+					id: doc._id,
+					label: doc.label,
+					isActive: doc.isActive,
+					createdAt: doc.createdAt,
+				},
+			});
+		},
+	);
 
 	// GET /api/keys/status — check if user has stored keys
-	app.get("/api/keys/status", async (request, reply) => {
-		if (!request.user) throw new UnauthorizedError();
+	app.get(
+		"/api/keys/status",
+		{
+			schema: {
+				tags: ["API Keys"],
+				summary: "Check if user has stored API keys",
+				security: [{ bearerAuth: [] }],
+				response: {
+					200: {
+						type: "object",
+						properties: {
+							success: { type: "boolean" },
+							data: {
+								type: "object",
+								properties: {
+									hasKeys: { type: "boolean" },
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		async (request, reply) => {
+			if (!request.user) throw new UnauthorizedError();
 
-		const hasKeys = await hasApiKeys(request.user.sub);
-		reply.send({ success: true, data: { hasKeys } });
-	});
+			const hasKeys = await hasApiKeys(request.user.sub);
+			reply.send({ success: true, data: { hasKeys } });
+		},
+	);
 
 	// DELETE /api/keys — delete stored keys
-	app.delete("/api/keys", async (request, reply) => {
-		if (!request.user) throw new UnauthorizedError();
+	app.delete(
+		"/api/keys",
+		{
+			schema: {
+				tags: ["API Keys"],
+				summary: "Delete stored API keys",
+				security: [{ bearerAuth: [] }],
+				response: {
+					200: {
+						type: "object",
+						properties: {
+							success: { type: "boolean" },
+							data: {
+								type: "object",
+								properties: {
+									deleted: { type: "boolean" },
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		async (request, reply) => {
+			if (!request.user) throw new UnauthorizedError();
 
-		await deleteApiKeys(request.user.sub);
-		request.log.info(
-			{ userId: request.user.sub, action: "delete_api_keys" },
-			"API keys deleted",
-		);
-		reply.send({ success: true, data: { deleted: true } });
-	});
+			await deleteApiKeys(request.user.sub);
+			request.log.info(
+				{ userId: request.user.sub, action: "delete_api_keys" },
+				"API keys deleted",
+			);
+			reply.send({ success: true, data: { deleted: true } });
+		},
+	);
 }

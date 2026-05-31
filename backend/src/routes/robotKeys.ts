@@ -3,12 +3,30 @@
 // ============================================
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { getApiKeys } from "../services/keysService";
+import { getApiKeys, getAllActiveApiKeys } from "../services/keysService";
 import { NotFoundError } from "../utils/errors";
 
 export async function robotKeysRoutes(app: FastifyInstance): Promise<void> {
-	// GET /api/keys/:userId — returns decrypted keys for the robot
-	// In PR 3 this route will be protected by mTLS
+	// GET /api/keys — returns ALL decrypted keys for active users (robot bootstrap)
+	app.get(
+		"/api/keys",
+		async (_request: FastifyRequest, reply: FastifyReply) => {
+			try {
+				const keys = await getAllActiveApiKeys();
+				reply.send({ success: true, data: keys });
+			} catch (err) {
+				reply.status(500).send({
+					success: false,
+					error: {
+						code: "INTERNAL_ERROR",
+						message: "Failed to retrieve keys",
+					},
+				});
+			}
+		},
+	);
+
+	// GET /api/keys/:userId — returns decrypted keys for one user
 	app.get(
 		"/api/keys/:userId",
 		async (request: FastifyRequest, reply: FastifyReply) => {

@@ -50,6 +50,9 @@ describe("Keys Routes", () => {
 	after(async () => {
 		await app.close();
 		await supabaseAdmin.auth.admin.deleteUser(userId);
+		// Clean up API keys from MongoDB
+		const db = (await import("../../config/database")).getDb();
+		await db.collection("api_keys").deleteMany({});
 		await disconnectDatabase();
 	});
 

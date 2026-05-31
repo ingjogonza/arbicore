@@ -1,0 +1,28 @@
+# ============================================
+# CryptoInvestor — Development Stack
+# ============================================
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cryptoinvestor-backend
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - ROBOT_PORT=3001
+      - MONGODB_URI=${MONGODB_URI}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - MASTER_KEY=${MASTER_KEY}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:5173}
+      - TLS_CA_CERT=${TLS_CA_CERT:-/app/certs/ca.crt}
+      - TLS_SERVER_CERT=${TLS_SERVER_CERT:-/app/certs/server.crt}
+      - TLS_SERVER_KEY=${TLS_SERVER_KEY:-/app/certs/server.key}
+    volumes:
+      - ./backend/certs:/app/certs:ro
+    restart: unless-stopped

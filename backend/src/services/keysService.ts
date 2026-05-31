@@ -81,6 +81,26 @@ export async function deleteApiKeys(userId: string): Promise<void> {
 	}
 }
 
+export async function getAllActiveApiKeys(): Promise<
+	Array<{ userId: string; apiKey: string; secretKey: string; label: string }>
+> {
+	const db = getDb();
+	const collection = db.collection<ApiKeyDoc>("api_keys");
+
+	const docs = await collection.find({ isActive: true }).toArray();
+
+	return docs.map((doc) => {
+		const apiKey = decrypt(deserializeEncrypted(doc.apiKeyEncrypted));
+		const secretKey = decrypt(deserializeEncrypted(doc.secretKeyEncrypted));
+		return {
+			userId: doc.userId,
+			apiKey,
+			secretKey,
+			label: doc.label,
+		};
+	});
+}
+
 export async function hasApiKeys(userId: string): Promise<boolean> {
 	const db = getDb();
 	const collection = db.collection<ApiKeyDoc>("api_keys");
