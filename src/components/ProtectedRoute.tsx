@@ -4,9 +4,13 @@
 
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useSessionTimeout } from "../hooks/useSessionTimeout";
+import { SessionWarningModal } from "./SessionWarningModal";
 
 export const ProtectedRoute: React.FC = () => {
-	const { state, twoFactor } = useAuth();
+	const { state, twoFactor, logout } = useAuth();
+	const { showWarning, remainingSeconds, extendSession } =
+		useSessionTimeout(logout);
 
 	if (state.loading) {
 		return (
@@ -24,5 +28,15 @@ export const ProtectedRoute: React.FC = () => {
 		return <Navigate to="/2fa-verify" replace />;
 	}
 
-	return <Outlet />;
+	return (
+		<>
+			<SessionWarningModal
+				isOpen={showWarning}
+				remainingSeconds={remainingSeconds}
+					onExtend={extendSession}
+				onLogout={logout}
+			/>
+			<Outlet />
+		</>
+	);
 };
