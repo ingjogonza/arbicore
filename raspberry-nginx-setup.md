@@ -102,7 +102,25 @@ sudo certbot --nginx -d app.glsolutions.tech
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-### 3. Build del frontend
+### 3. CORS — permitir app.glsolutions.tech en el backend
+
+La API en `api.glsolutions.tech` rechaza peticiones del frontend en `app.glsolutions.tech` si no está en `CORS_ORIGIN`. Hay que agregarlo al `.env` que usa Docker:
+
+```bash
+cd /home/jorge/docker/cryptoinvestor-plataforma
+# Editar .env y agregar o actualizar:
+echo 'CORS_ORIGIN=http://localhost:5173,https://app.glsolutions.tech' >> .env
+# O con editor:
+# nano .env
+```
+
+Luego reiniciar el container:
+```bash
+docker compose down
+docker compose up -d
+```
+
+### 4. Build del frontend
 
 En la Raspberry, después de hacer `git pull`, compilar el frontend:
 
@@ -114,11 +132,17 @@ npm run build
 
 Esto regenera `dist/` con las variables de producción (`VITE_API_BASE_URL=https://api.glsolutions.tech`).
 
-### 4. Verificar
+### 5. Verificar
 
 ```bash
 curl https://app.glsolutions.tech
 # Debería devolver el HTML del index.html
+```
+
+Probar la conexión con la API desde el frontend:
+```bash
+curl https://api.glsolutions.tech/health
+# Debería responder con JSON
 ```
 
 ## Nota sobre mTLS / robot
