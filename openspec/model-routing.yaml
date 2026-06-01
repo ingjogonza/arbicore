@@ -1,0 +1,125 @@
+# =============================================================================
+# Model Routing — LLM assignment per agent/task
+# =============================================================================
+# Source of truth for which model each agent uses.
+# Applied in: agent .md frontmatter (model: field).
+# Conditional escalations handled by orchestrator at call time.
+# =============================================================================
+
+# =========================
+# FREE MODEL
+# =========================
+free_model: deepseek-v4-flash-free
+
+# =========================
+# SDD PIPELINE
+# =========================
+# Each maps to ~/.pi/agent/agents/sdd-<name>.md or ~/.agents/sdd-<name>.md
+
+sdd-init:
+  primary: deepseek-v4-flash-free
+  fallback: opencode-go/glm-5.1
+
+sdd-explore:
+  primary: deepseek-v4-flash-free
+  fallback: opencode-go/kimi-k2.6
+  escalation:
+    - repo_gt_20k_loc
+    - multi_module_repo
+    - unclear_dependencies
+
+sdd-propose:
+  primary: opencode-go/glm-5.1
+  fallback: deepseek-v4-flash-free
+
+sdd-spec:
+  primary: opencode-go/kimi-k2.6
+  fallback: opencode-go/qwen3.6-plus
+
+sdd-design:
+  primary: opencode-go/qwen3.6-plus
+  fallback: opencode-go/kimi-k2.6
+  zen_escalation: claude-sonnet-4.5
+
+sdd-tasks:
+  primary: deepseek-v4-flash-free
+  fallback: opencode-go/deepseek-v4-pro
+
+sdd-apply:
+  primary: opencode-go/deepseek-v4-pro
+  fallback: opencode-go/kimi-k2.6
+
+sdd-verify:
+  primary: deepseek-v4-flash-free
+  secondary_review: opencode-go/kimi-k2.6
+
+sdd-sync:
+  primary: deepseek-v4-flash-free
+  fallback: opencode-go/glm-5.1
+  escalation:
+    - conflicting_specs
+    - architectural_changes
+
+sdd-archive:
+  primary: deepseek-v4-flash-free
+
+sdd-onboard:
+  primary: deepseek-v4-flash-free
+
+# =========================
+# SUPPORT COMPONENTS
+# =========================
+# Maps to ~/.agents/<name>.md
+# context-builder is a user override of the pi-subagents builtin
+
+context-builder:
+  pass_1: deepseek-v4-flash-free
+  pass_2: opencode-go/kimi-k2.6
+  escalation:
+    - monorepo
+    - cross_service_dependencies
+
+coder:
+  default: opencode-go/deepseek-v4-pro
+
+  cheap_tasks:
+    model: deepseek-v4-flash-free
+    use_for:
+      - boilerplate
+      - CRUD
+      - tests
+      - docs
+      - small_refactors
+
+  escalation:
+    - files_gt_10:
+        model: opencode-go/kimi-k2.6
+    - cross_module_changes:
+        model: opencode-go/qwen3.6-plus
+    - production_critical:
+        model: claude-sonnet-4.5
+
+judgment-day:
+  judge_1:
+    model: opencode-go/kimi-k2.6
+  judge_2:
+    model: claude-sonnet-4.5
+
+# =========================
+# GLOBAL ESCALATION RULES
+# =========================
+# These are NOT enforced by the runtime. The orchestrator (el Gentleman)
+# checks these conditions and passes the appropriate model: override
+# in subagent() calls.
+
+rules:
+  - if_context_gt_150k_tokens:
+      escalate: true
+  - if_repo_gt_100k_loc:
+      escalate: true
+  - if_multiple_services:
+      escalate: true
+  - if_low_confidence:
+      escalate: true
+  - if_security_sensitive:
+      use_frontier_model: true
