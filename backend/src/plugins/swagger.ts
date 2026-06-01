@@ -97,7 +97,10 @@ export async function registerSwagger(app: FastifyInstance): Promise<void> {
 	});
 
 	// Expose raw OpenAPI spec (accede via auth plugin con token en query param)
-	app.get("/docs/json", async (_request: FastifyRequest, reply: FastifyReply) => {
-		reply.send(app.swagger());
-	});
+	app.get(
+		"/docs/json",
+		async (_request: FastifyRequest, reply: FastifyReply) => {
+			reply.send(app.swagger());
+		},
+	);
 }

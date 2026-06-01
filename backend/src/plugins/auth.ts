@@ -35,11 +35,7 @@ export async function registerAuth(app: FastifyInstance): Promise<void> {
 			const urlPath = request.url.split("?")[0];
 
 			// Skip auth for public paths
-			if (
-				PUBLIC_PATHS.some(
-					(p) => urlPath === p || urlPath.startsWith(p),
-				)
-			) {
+			if (PUBLIC_PATHS.some((p) => urlPath === p || urlPath.startsWith(p))) {
 				return;
 			}
 

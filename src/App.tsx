@@ -13,6 +13,7 @@ import { RegisterScreen } from "./screens/RegisterScreen";
 import { VerifyEmailScreen } from "./screens/VerifyEmailScreen";
 import { ForgotPasswordScreen } from "./screens/ForgotPasswordScreen";
 import { ResetPasswordScreen } from "./screens/ResetPasswordScreen";
+import { AuthCallbackScreen } from "./screens/AuthCallbackScreen";
 import { TwoFactorSetupScreen } from "./screens/TwoFactorSetupScreen";
 import { TwoFactorVerifyScreen } from "./screens/TwoFactorVerifyScreen";
 import { ConnectScreen } from "./screens/ConnectScreen";
@@ -35,6 +36,7 @@ function App() {
 								path="/forgot-password"
 								element={<ForgotPasswordScreen />}
 							/>
+							<Route path="/auth/callback" element={<AuthCallbackScreen />} />
 							<Route path="/reset-password" element={<ResetPasswordScreen />} />
 							<Route path="/2fa-setup" element={<TwoFactorSetupScreen />} />
 							<Route path="/2fa-verify" element={<TwoFactorVerifyScreen />} />
