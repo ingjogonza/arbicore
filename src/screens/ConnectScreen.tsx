@@ -26,7 +26,11 @@ import { env } from "../lib/env";
 const API_BASE = env.VITE_API_BASE_URL || "http://localhost:3000";
 const SUPPORT_WA = "https://wa.me/56968546598";
 
-type ConnectionState = "loading" | "connected" | "not_connected" | "was_disconnected";
+type ConnectionState =
+	| "loading"
+	| "connected"
+	| "not_connected"
+	| "was_disconnected";
 
 export const ConnectScreen: React.FC = () => {
 	const navigate = useNavigate();
@@ -57,9 +61,7 @@ export const ConnectScreen: React.FC = () => {
 			.then((data) => {
 				if (cancelled) return;
 				setConnectionState(
-					data.success && data.data?.hasKeys
-						? "connected"
-						: "not_connected",
+					data.success && data.data?.hasKeys ? "connected" : "not_connected",
 				);
 			})
 			.catch(() => {
@@ -290,19 +292,33 @@ export const ConnectScreen: React.FC = () => {
 
 						<div className="flex gap-3 pt-2">
 							<Button
+								variant="secondary"
+								onClick={() => navigate("/dashboard")}
+								className="flex-1"
+							>
+								Cancelar
+							</Button>
+							<Button
 								onClick={handleConnect}
 								disabled={!apiKey || !secretKey || !confirmed || saving}
-								className="flex-1"
+								className="flex-[2]"
 							>
 								{saving ? (
 									<Loader2 size={18} className="mr-2 animate-spin" />
 								) : null}
 								{saving ? "Guardando..." : "Verificar y Conectar"}
 							</Button>
-							<Button variant="ghost" onClick={() => {}}>
-								¿Cómo crear API keys?
-							</Button>
 						</div>
+
+						<a
+							href={SUPPORT_WA}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="inline-flex items-center justify-center gap-2 text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-medium underline underline-offset-2 w-full pt-1"
+						>
+							<MessageCircle size={16} />
+							¿No tenés tus claves? Pedí ayuda por WhatsApp
+						</a>
 					</div>
 				)}
 			</Card>
@@ -338,8 +354,8 @@ export const ConnectScreen: React.FC = () => {
 						<div className="flex items-start gap-2">
 							<Key size={16} className="text-amber-500 mt-0.5 shrink-0" />
 							<p>
-								<strong>Debés crear claves NUEVAS en Binance.</strong>{" "}
-								No podés reutilizar las claves que desconectaste.
+								<strong>Debés crear claves NUEVAS en Binance.</strong> No podés
+								reutilizar las claves que desconectaste.
 							</p>
 						</div>
 						<div className="flex items-start gap-2">

@@ -59,7 +59,8 @@ describe("ConnectScreen", () => {
 	describe("not connected — registration form", () => {
 		beforeEach(() => {
 			global.fetch = jest.fn().mockResolvedValue({
-				json: () => Promise.resolve({ success: true, data: { hasKeys: false } }),
+				json: () =>
+					Promise.resolve({ success: true, data: { hasKeys: false } }),
 			}) as any;
 		});
 
@@ -78,9 +79,7 @@ describe("ConnectScreen", () => {
 			expect(
 				screen.getByPlaceholderText(/ingres.*secret key/i),
 			).toBeInTheDocument();
-			expect(
-				screen.getByText(/verificar y conectar/i),
-			).toBeInTheDocument();
+			expect(screen.getByText(/verificar y conectar/i)).toBeInTheDocument();
 		});
 
 		test("shows onboarding info alert", async () => {
@@ -91,9 +90,7 @@ describe("ConnectScreen", () => {
 			);
 
 			await waitFor(() => {
-				expect(
-					screen.getByText(/todav.*no configuraste/i),
-				).toBeInTheDocument();
+				expect(screen.getByText(/todav.*no configuraste/i)).toBeInTheDocument();
 			});
 		});
 
@@ -105,7 +102,9 @@ describe("ConnectScreen", () => {
 			);
 
 			await waitFor(() => {
-				const btn = screen.getByRole("button", { name: /verificar y conectar/i });
+				const btn = screen.getByRole("button", {
+					name: /verificar y conectar/i,
+				});
 				expect(btn).toBeDisabled();
 			});
 		});
@@ -122,7 +121,9 @@ describe("ConnectScreen", () => {
 				const secretInput = screen.getByPlaceholderText(/ingres.*secret key/i);
 				fireEvent.change(apiInput, { target: { value: "my-key" } });
 				fireEvent.change(secretInput, { target: { value: "my-secret" } });
-				const btn = screen.getByRole("button", { name: /verificar y conectar/i });
+				const btn = screen.getByRole("button", {
+					name: /verificar y conectar/i,
+				});
 				// checkbox not checked → disabled
 				expect(btn).toBeDisabled();
 
@@ -141,8 +142,7 @@ describe("ConnectScreen", () => {
 				})
 				.mockResolvedValueOnce({
 					ok: true,
-					json: () =>
-						Promise.resolve({ success: true, data: { id: "abc" } }),
+					json: () => Promise.resolve({ success: true, data: { id: "abc" } }),
 				});
 			global.fetch = mockFetch;
 
@@ -165,7 +165,9 @@ describe("ConnectScreen", () => {
 				target: { value: "my-secret" },
 			});
 			fireEvent.click(screen.getByRole("checkbox"));
-			fireEvent.click(screen.getByRole("button", { name: /verificar y conectar/i }));
+			fireEvent.click(
+				screen.getByRole("button", { name: /verificar y conectar/i }),
+			);
 
 			await waitFor(() => {
 				expect(mockFetch).toHaveBeenCalledWith(
@@ -215,12 +217,12 @@ describe("ConnectScreen", () => {
 				target: { value: "secret" },
 			});
 			fireEvent.click(screen.getByRole("checkbox"));
-			fireEvent.click(screen.getByRole("button", { name: /verificar y conectar/i }));
+			fireEvent.click(
+				screen.getByRole("button", { name: /verificar y conectar/i }),
+			);
 
 			await waitFor(() => {
-				expect(
-					screen.getByText(/claves api conectadas/i),
-				).toBeInTheDocument();
+				expect(screen.getByText(/claves api conectadas/i)).toBeInTheDocument();
 			});
 		});
 
@@ -262,7 +264,9 @@ describe("ConnectScreen", () => {
 				target: { value: "bad-secret" },
 			});
 			fireEvent.click(screen.getByRole("checkbox"));
-			fireEvent.click(screen.getByRole("button", { name: /verificar y conectar/i }));
+			fireEvent.click(
+				screen.getByRole("button", { name: /verificar y conectar/i }),
+			);
 
 			await waitFor(() => {
 				expect(
@@ -306,7 +310,9 @@ describe("ConnectScreen", () => {
 				target: { value: "secret" },
 			});
 			fireEvent.click(screen.getByRole("checkbox"));
-			fireEvent.click(screen.getByRole("button", { name: /verificar y conectar/i }));
+			fireEvent.click(
+				screen.getByRole("button", { name: /verificar y conectar/i }),
+			);
 
 			await waitFor(() => {
 				expect(
@@ -331,9 +337,7 @@ describe("ConnectScreen", () => {
 			);
 
 			await waitFor(() => {
-				expect(
-					screen.getByText(/claves api conectadas/i),
-				).toBeInTheDocument();
+				expect(screen.getByText(/claves api conectadas/i)).toBeInTheDocument();
 			});
 			expect(screen.getByText(/conectado/i)).toBeInTheDocument();
 			expect(
@@ -349,9 +353,7 @@ describe("ConnectScreen", () => {
 			);
 
 			await waitFor(() => {
-				expect(
-					screen.getByText(/claves api conectadas/i),
-				).toBeInTheDocument();
+				expect(screen.getByText(/claves api conectadas/i)).toBeInTheDocument();
 			});
 
 			fireEvent.click(screen.getByRole("button", { name: /desconectar/i }));
@@ -364,9 +366,7 @@ describe("ConnectScreen", () => {
 			expect(
 				screen.getByText(/deb.*s crear claves nuevas/i),
 			).toBeInTheDocument();
-			expect(
-				screen.getByText(/contactanos por whatsapp/i),
-			).toBeInTheDocument();
+			expect(screen.getByText(/contactanos por whatsapp/i)).toBeInTheDocument();
 		});
 
 		test("calls DELETE /api/keys when confirming disconnect", async () => {
@@ -392,9 +392,7 @@ describe("ConnectScreen", () => {
 			);
 
 			await waitFor(() => {
-				expect(
-					screen.getByText(/claves api conectadas/i),
-				).toBeInTheDocument();
+				expect(screen.getByText(/claves api conectadas/i)).toBeInTheDocument();
 			});
 
 			// Click disconnect → opens modal, then click confirm
@@ -423,9 +421,7 @@ describe("ConnectScreen", () => {
 			);
 
 			await waitFor(() => {
-				expect(
-					screen.getByText(/claves api conectadas/i),
-				).toBeInTheDocument();
+				expect(screen.getByText(/claves api conectadas/i)).toBeInTheDocument();
 			});
 
 			fireEvent.click(screen.getByRole("button", { name: /ir al dashboard/i }));
@@ -463,9 +459,7 @@ describe("ConnectScreen", () => {
 			);
 
 			await waitFor(() => {
-				expect(
-					screen.getByText(/claves api conectadas/i),
-				).toBeInTheDocument();
+				expect(screen.getByText(/claves api conectadas/i)).toBeInTheDocument();
 			});
 
 			// Open modal and confirm disconnect
