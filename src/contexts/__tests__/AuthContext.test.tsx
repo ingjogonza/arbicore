@@ -157,6 +157,7 @@ describe("AuthContext", () => {
 			password: "pw",
 			firstName: "A",
 			lastName: "B",
+			phone: "+123456789",
 			legalDocsAccepted: true,
 		});
 
@@ -374,6 +375,7 @@ describe("AuthContext", () => {
 					password: "pw",
 					firstName: "A",
 					lastName: "B",
+					phone: "+123456789",
 					legalDocsAccepted: true,
 				}),
 			).rejects.toEqual(
@@ -401,6 +403,7 @@ describe("AuthContext", () => {
 					password: "pw",
 					firstName: "A",
 					lastName: "B",
+					phone: "+123456789",
 					legalDocsAccepted: true,
 				}),
 			).rejects.toThrow("User creation failed");
