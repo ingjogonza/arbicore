@@ -29,6 +29,7 @@ export interface UserProfileCache {
 	email: string;
 	firstName?: string;
 	lastName?: string;
+	phone?: string;
 	lastVerifiedAt: Date;
 }
 
@@ -51,6 +52,19 @@ export interface TwoFactorDoc {
 	secretEncrypted: string;
 	enabled: boolean;
 	createdAt: Date;
+	recoveryCodes?: RecoveryCode[];
+}
+
+export interface RecoveryCode {
+	codeHash: string;
+	used: boolean;
+	usedAt?: Date;
+}
+
+export interface TwoFactorSetupResult {
+	secret: string;
+	qrCodeUrl: string;
+	recoveryCodes: string[];
 }
 
 export interface TwoFactorSetupBody {
@@ -64,6 +78,7 @@ export interface JwtPayload {
 	user_metadata?: {
 		first_name?: string;
 		last_name?: string;
+		phone?: string;
 	};
 }
 

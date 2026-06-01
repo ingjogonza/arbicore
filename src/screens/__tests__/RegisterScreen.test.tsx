@@ -139,7 +139,7 @@ describe("RegisterScreen", () => {
 		).toBeDisabled();
 	});
 
-	test("calls register with correct data", async () => {
+	test("calls register with correct data including phone", async () => {
 		mockRegister.mockResolvedValue(undefined);
 		render(
 			<BrowserRouter>
@@ -162,6 +162,10 @@ describe("RegisterScreen", () => {
 		fireEvent.change(screen.getAllByPlaceholderText(/••••••••/i)[1], {
 			target: { value: "password123" },
 		});
+		// Add phone number
+		fireEvent.change(screen.getByPlaceholderText(/11 2345 6789/i), {
+			target: { value: "11 2345 6789" },
+		});
 
 		// Accept all legal docs
 		const checkboxes = screen.getAllByRole("checkbox");
@@ -177,6 +181,7 @@ describe("RegisterScreen", () => {
 				lastName: "Pérez",
 				email: "a@b.com",
 				password: "password123",
+				phone: "+54 11 2345 6789",
 				legalDocsAccepted: true,
 			}),
 		);

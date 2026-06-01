@@ -58,6 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 							email: session.user.email || "",
 							firstName: userMeta.first_name || "",
 							lastName: userMeta.last_name || "",
+							phone: userMeta.phone || "",
 						},
 						session: { access_token: session.access_token },
 						loading: false,
@@ -82,6 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 							email: session.user.email || "",
 							firstName: userMeta.first_name || "",
 							lastName: userMeta.last_name || "",
+							phone: userMeta.phone || "",
 						},
 						session: { access_token: session.access_token },
 						loading: false,
@@ -130,6 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 					email: data.user.email || "",
 					firstName: userMeta.first_name || "",
 					lastName: userMeta.last_name || "",
+					phone: userMeta.phone || "",
 				},
 				session: { access_token: data.session.access_token },
 				loading: false,
@@ -169,6 +172,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 				data: {
 					first_name: data.firstName,
 					last_name: data.lastName,
+					phone: data.phone,
 				},
 				emailRedirectTo: `${window.location.origin}/auth/callback`,
 			},
@@ -235,6 +239,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 	const setup2FA = useCallback(async (): Promise<{
 		secret: string;
 		qrCodeUrl: string;
+		recoveryCodes: string[];
 	}> => {
 		if (!state.session) throw new Error("Not authenticated");
 		console.log(
@@ -250,8 +255,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 		console.log("[2FA] Response data:", data);
 		if (!data.success)
 			throw new Error(data.error?.message || "Failed to setup 2FA");
-		setTwoFactor((prev) => ({ ...prev, qrCodeUrl: data.data.qrCodeUrl }));
-		return { secret: data.data.secret, qrCodeUrl: data.data.qrCodeUrl };
+		setTwoFactor((prev) => ({
+			...prev,
+			qrCodeUrl: data.data.qrCodeUrl,
+			recoveryCodes: data.data.recoveryCodes,
+		}));
+		return {
+			secret: data.data.secret,
+			qrCodeUrl: data.data.qrCodeUrl,
+			recoveryCodes: data.data.recoveryCodes,
+		};
 	}, [state.session, API_BASE]);
 
 	const verify2FA = useCallback(
@@ -298,6 +311,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 		return false;
 	}, [state.session, API_BASE]);
 
+	const recover2FA = useCallback(
+		async (code: string): Promise<{ success: boolean; message: string }> => {
+			if (!state.session) throw new Error("Not authenticated");
+			const res = await fetch(`${API_BASE}/api/auth/2fa/recovery`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${state.session.access_token}`,
+				},
+				body: JSON.stringify({ code }),
+			});
+			const data = await res.json();
+			if (!data.success) {
+				return {
+					success: false,
+					message: data.error?.message || "Código de recuperación inválido.",
+				};
+			}
+			setTwoFactor({
+				enabled: false,
+				setupComplete: false,
+				requires2FA: false,
+			});
+			return { success: true, message: data.data.message };
+		},
+		[state.session, API_BASE],
+	);
+
 	const clearError = useCallback(() => {
 		setState((prev) => ({ ...prev, error: null }));
 	}, []);
@@ -316,6 +357,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 				verify2FA,
 				disable2FA,
 				check2FAStatus,
+				recover2FA,
 				clearError,
 			}}
 		>

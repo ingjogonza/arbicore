@@ -126,6 +126,9 @@ export async function registerAuth(app: FastifyInstance): Promise<void> {
 						last_name:
 							(data.user.user_metadata?.last_name as string | undefined) ||
 							profile.lastName,
+						phone:
+							(data.user.user_metadata?.phone as string | undefined) ||
+							profile.phone,
 					},
 				};
 			} catch (err) {

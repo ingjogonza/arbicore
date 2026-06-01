@@ -190,8 +190,32 @@ describe("TwoFactorSetupScreen", () => {
 			);
 		});
 
-		test("navigates to /settings after successful verification", async () => {
-			jest.useFakeTimers();
+		test("shows recovery codes with copy and download buttons", async () => {
+			mockVerify2FA.mockResolvedValue(true);
+
+			renderScreen();
+
+			await waitFor(() =>
+				expect(screen.getByAltText("2FA QR Code")).toBeInTheDocument(),
+			);
+
+			const input = screen.getByPlaceholderText("000000");
+			fireEvent.change(input, { target: { value: "123456" } });
+			fireEvent.click(screen.getByRole("button", { name: /verificar/i }));
+
+			await waitFor(() =>
+				expect(screen.getByText("Códigos de Recuperación")).toBeInTheDocument(),
+			);
+
+			expect(
+				screen.getByRole("button", { name: /copiar/i }),
+			).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /descargar/i }),
+			).toBeInTheDocument();
+		});
+
+		test("shows recovery codes after successful verification", async () => {
 			mockVerify2FA.mockResolvedValue(true);
 
 			renderScreen();
@@ -210,12 +234,10 @@ describe("TwoFactorSetupScreen", () => {
 				).toBeInTheDocument(),
 			);
 
-			// Advance past the 2000ms timeout
-			jest.advanceTimersByTime(2000);
-
-			expect(mockNavigate).toHaveBeenCalledWith("/settings");
-
-			jest.useRealTimers();
+			expect(screen.getByText("Códigos de Recuperación")).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /ir a configuración/i }),
+			).toBeInTheDocument();
 		});
 
 		test("shows error on wrong token", async () => {

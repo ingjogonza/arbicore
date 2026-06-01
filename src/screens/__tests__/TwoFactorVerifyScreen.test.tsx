@@ -7,6 +7,8 @@ import { BrowserRouter } from "react-router-dom";
 import { TwoFactorVerifyScreen } from "../TwoFactorVerifyScreen";
 
 const mockVerify2FA = jest.fn();
+const mockRecover2FA = jest.fn();
+const mockLogout = jest.fn();
 const mockNavigate = jest.fn();
 
 jest.mock("../../contexts/AuthContext", () => ({
@@ -36,6 +38,8 @@ describe("TwoFactorVerifyScreen", () => {
 		jest.clearAllMocks();
 		(useAuth as jest.Mock).mockReturnValue({
 			verify2FA: mockVerify2FA,
+			recover2FA: mockRecover2FA,
+			logout: mockLogout,
 		});
 	});
 

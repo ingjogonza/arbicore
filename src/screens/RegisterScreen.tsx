@@ -8,6 +8,7 @@ import {
 	User,
 	Mail,
 	Lock,
+	Phone,
 	ArrowRight,
 	AlertCircle,
 	FileText,
@@ -16,6 +17,24 @@ import {
 import { Button } from "../components/ui/Button";
 import { Alert } from "../components/ui/Alert";
 import { useAuth } from "../contexts/AuthContext";
+
+const COUNTRY_CODES = [
+	{ code: "+54", label: "AR (+54)" },
+	{ code: "+1", label: "US (+1)" },
+	{ code: "+34", label: "ES (+34)" },
+	{ code: "+52", label: "MX (+52)" },
+	{ code: "+55", label: "BR (+55)" },
+	{ code: "+57", label: "CO (+57)" },
+	{ code: "+56", label: "CL (+56)" },
+	{ code: "+51", label: "PE (+51)" },
+	{ code: "+44", label: "UK (+44)" },
+	{ code: "+49", label: "DE (+49)" },
+	{ code: "+33", label: "FR (+33)" },
+	{ code: "+39", label: "IT (+39)" },
+	{ code: "+58", label: "VE (+58)" },
+	{ code: "+598", label: "UY (+598)" },
+	{ code: "+595", label: "PY (+595)" },
+];
 
 const LEGAL_DOCS = [
 	{
@@ -50,6 +69,8 @@ export const RegisterScreen: React.FC = () => {
 	const [firstName, setFirstName] = useState("");
 	const [lastName, setLastName] = useState("");
 	const [email, setEmail] = useState("");
+	const [countryCode, setCountryCode] = useState("+54");
+	const [phoneNumber, setPhoneNumber] = useState("");
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [acceptedDocs, setAcceptedDocs] = useState<Set<string>>(new Set());
@@ -87,6 +108,10 @@ export const RegisterScreen: React.FC = () => {
 			setLocalError("Las contraseñas no coinciden.");
 			return;
 		}
+		if (!phoneNumber.trim() || phoneNumber.replace(/\D/g, "").length < 6) {
+			setLocalError("Ingresa un número de teléfono válido.");
+			return;
+		}
 		if (!allDocsAccepted) {
 			setLocalError(
 				"Debes aceptar todos los documentos legales para continuar.",
@@ -100,6 +125,7 @@ export const RegisterScreen: React.FC = () => {
 				lastName: lastName.trim(),
 				email: email.trim(),
 				password,
+				phone: `${countryCode} ${phoneNumber.trim()}`,
 				legalDocsAccepted: true,
 			});
 			navigate("/verify-email");
@@ -222,6 +248,44 @@ export const RegisterScreen: React.FC = () => {
 								required
 							/>
 						</div>
+					</div>
+
+					<div>
+						<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+							Teléfono
+						</label>
+						<div className="flex gap-2">
+							<select
+								value={countryCode}
+								onChange={(e) => setCountryCode(e.target.value)}
+								className="w-28 px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+							>
+								{COUNTRY_CODES.map((cc) => (
+									<option key={cc.code} value={cc.code}>
+										{cc.label}
+									</option>
+								))}
+							</select>
+							<div className="relative flex-1">
+								<Phone
+									size={18}
+									className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+								/>
+								<input
+									type="tel"
+									value={phoneNumber}
+									onChange={(e) =>
+										setPhoneNumber(e.target.value.replace(/[^\d\s()\-+]/g, ""))
+									}
+									placeholder="11 2345 6789"
+									className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+									required
+								/>
+							</div>
+						</div>
+						<p className="text-xs text-slate-400 mt-1">
+							Usado solo para verificación de cuenta.
+						</p>
 					</div>
 
 					<div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-3">

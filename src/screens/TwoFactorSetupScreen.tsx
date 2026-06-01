@@ -2,9 +2,18 @@
 // 2FA SETUP SCREEN
 // ============================================
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, AlertCircle, CheckCircle, ArrowRight } from "lucide-react";
+import {
+	Shield,
+	AlertCircle,
+	CheckCircle,
+	ArrowRight,
+	Copy,
+	Download,
+	Key,
+	Check,
+} from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Alert } from "../components/ui/Alert";
 import { useAuth } from "../contexts/AuthContext";
@@ -18,14 +27,19 @@ export const TwoFactorSetupScreen: React.FC = () => {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 	const [verified, setVerified] = useState(false);
+	const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+	const [codesCopied, setCodesCopied] = useState(false);
+	const [codesSaved, setCodesSaved] = useState(false);
+	const codesRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		let cancelled = false;
 		setup2FA()
-			.then(({ secret: s, qrCodeUrl }) => {
+			.then(({ secret: s, qrCodeUrl, recoveryCodes: codes }) => {
 				if (!cancelled) {
 					setSecret(s);
 					setQrCode(qrCodeUrl);
+					setRecoveryCodes(codes || []);
 				}
 			})
 			.catch((err: any) => {
@@ -48,7 +62,6 @@ export const TwoFactorSetupScreen: React.FC = () => {
 			const ok = await verify2FA(token);
 			if (ok) {
 				setVerified(true);
-				setTimeout(() => navigate("/settings"), 2000);
 			} else {
 				setError("Código incorrecto. Intenta de nuevo.");
 			}
@@ -57,6 +70,35 @@ export const TwoFactorSetupScreen: React.FC = () => {
 		} finally {
 			setLoading(false);
 		}
+	};
+
+	const copyCodes = () => {
+		navigator.clipboard.writeText(recoveryCodes.join("\n"));
+		setCodesCopied(true);
+		setTimeout(() => setCodesCopied(false), 2000);
+	};
+
+	const downloadCodes = () => {
+		const content = [
+			"CryptoInvestor - Códigos de Recuperación 2FA",
+			"Guardalos en un lugar seguro. Cada código solo puede usarse una vez.",
+			"",
+			...recoveryCodes.map((c) => `  ${c}`),
+			"",
+			"Generado el: " + new Date().toLocaleDateString("es-AR"),
+		].join("\n");
+		const blob = new Blob([content], { type: "text/plain" });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = "cryptoinvestor-2fa-recovery-codes.txt";
+		a.click();
+		URL.revokeObjectURL(url);
+		setCodesSaved(true);
+	};
+
+	const handleContinue = () => {
+		navigate("/settings");
 	};
 
 	return (
@@ -83,10 +125,71 @@ export const TwoFactorSetupScreen: React.FC = () => {
 				)}
 
 				{verified ? (
-					<Alert variant="success" icon={<CheckCircle size={16} />}>
-						<span className="font-medium">¡2FA activado correctamente!</span>
-						<p className="mt-1 text-sm">Redirigiendo a configuración...</p>
-					</Alert>
+					<div className="space-y-4">
+						<Alert variant="success" icon={<CheckCircle size={16} />}>
+							<span className="font-medium">¡2FA activado correctamente!</span>
+						</Alert>
+
+						<div className="border border-yellow-200 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+							<div className="flex items-start gap-3">
+								<Key size={20} className="text-yellow-600 mt-0.5" />
+								<div>
+									<h3 className="text-sm font-bold text-yellow-800 dark:text-yellow-200">
+										Códigos de Recuperación
+									</h3>
+									<p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+										Guardá estos códigos en un lugar seguro. Si perdés el acceso
+										a tu app de autenticación, podés usar uno de estos códigos
+										para recuperar tu cuenta.
+										<strong>Cada código solo puede usarse una vez.</strong>
+										Estos códigos no se mostrarán nuevamente.
+									</p>
+								</div>
+							</div>
+
+							<div
+								ref={codesRef}
+								className="mt-3 p-3 bg-white dark:bg-slate-800 rounded border border-yellow-300 dark:border-yellow-600 font-mono text-sm"
+							>
+								{recoveryCodes.map((code, i) => (
+									<div key={i} className="py-0.5">
+										<span className="text-slate-400 mr-2">{i + 1}.</span>
+										<span className="text-slate-800 dark:text-slate-200">
+											{code}
+										</span>
+									</div>
+								))}
+							</div>
+
+							<div className="flex gap-2 mt-3">
+								<Button variant="secondary" size="sm" onClick={copyCodes}>
+									{codesCopied ? (
+										<>
+											<Check size={14} className="mr-1" /> Copiado
+										</>
+									) : (
+										<>
+											<Copy size={14} className="mr-1" /> Copiar
+										</>
+									)}
+								</Button>
+								<Button variant="secondary" size="sm" onClick={downloadCodes}>
+									<Download size={14} className="mr-1" />{" "}
+									{codesSaved ? "Descargado" : "Descargar"}
+								</Button>
+							</div>
+						</div>
+
+						<div className="flex justify-center">
+							<Button
+								variant="primary"
+								className="w-full"
+								onClick={handleContinue}
+							>
+								Ir a configuración
+							</Button>
+						</div>
+					</div>
 				) : qrCode ? (
 					<div className="space-y-4">
 						<div className="text-center">

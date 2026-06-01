@@ -20,14 +20,13 @@ import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Alert } from "../components/ui/Alert";
 import { Modal } from "../components/ui/Modal";
-import { Input } from "../components/ui/Input";
 import { useTrading } from "../hooks/useTrading";
 import { useAuth } from "../contexts/AuthContext";
 
 export const SettingsScreen: React.FC = () => {
 	const navigate = useNavigate();
 	const { legalDocs, acceptDocument, disconnectApi } = useTrading();
-	const { twoFactor } = useAuth();
+	const { state: authState, twoFactor } = useAuth();
 	const [activeSection, setActiveSection] = useState("legal");
 	const [showDisconnectModal, setShowDisconnectModal] = useState(false);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -205,17 +204,34 @@ export const SettingsScreen: React.FC = () => {
 								Account Settings
 							</h3>
 							<div className="space-y-4">
-								<Input
-									label="Full Name"
-									value="Alex Rivera"
-									onChange={() => {}}
-								/>
-								<Input
-									label="Email"
-									value="alex@example.com"
-									onChange={() => {}}
-								/>
-								<Button>Save Changes</Button>
+								<div>
+									<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+										Full Name
+									</label>
+									<p className="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm">
+										{`${authState.user?.firstName || ""} ${authState.user?.lastName || ""}`.trim() ||
+											"-"}
+									</p>
+								</div>
+								<div>
+									<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+										Email
+									</label>
+									<p className="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm">
+										{authState.user?.email || "-"}
+									</p>
+								</div>
+								<div>
+									<label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+										Teléfono
+									</label>
+									<p className="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm">
+										{authState.user?.phone || "-"}
+									</p>
+									<p className="text-xs text-slate-400 mt-1">
+										El teléfono no puede editarse desde aquí.
+									</p>
+								</div>
 							</div>
 							<div className="mt-6 border-t border-slate-100 dark:border-slate-700 pt-6">
 								<h4 className="text-md font-semibold text-slate-900 dark:text-white mb-2">

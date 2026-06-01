@@ -27,6 +27,7 @@ export async function profileRoutes(app: FastifyInstance): Promise<void> {
 									email: { type: "string" },
 									firstName: { type: "string" },
 									lastName: { type: "string" },
+									phone: { type: "string" },
 									cached: { type: "boolean" },
 								},
 							},
@@ -48,6 +49,7 @@ export async function profileRoutes(app: FastifyInstance): Promise<void> {
 					firstName:
 						request.user.user_metadata?.first_name || profile?.firstName,
 					lastName: request.user.user_metadata?.last_name || profile?.lastName,
+					phone: request.user.user_metadata?.phone || profile?.phone || null,
 					cached: !!profile,
 				},
 			});

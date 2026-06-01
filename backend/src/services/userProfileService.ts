@@ -27,6 +27,7 @@ export async function cacheUserProfile(
 		email: data.user.email || "",
 		firstName: (data.user.user_metadata?.first_name as string) || undefined,
 		lastName: (data.user.user_metadata?.last_name as string) || undefined,
+		phone: (data.user.user_metadata?.phone as string) || undefined,
 		lastVerifiedAt: new Date(),
 	};
 

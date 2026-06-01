@@ -65,6 +65,7 @@ export interface RegisterData {
 	lastName: string;
 	email: string;
 	password: string;
+	phone: string;
 	legalDocsAccepted: boolean;
 }
 
@@ -74,6 +75,7 @@ export interface AuthState {
 		email: string;
 		firstName?: string;
 		lastName?: string;
+		phone?: string;
 	} | null;
 	session: { access_token: string } | null;
 	loading: boolean;
@@ -90,6 +92,7 @@ export interface TwoFactorState {
 	qrCodeUrl?: string;
 	requires2FA: boolean;
 	pendingUserId?: string;
+	recoveryCodes?: string[];
 }
 
 export interface AuthContextValue {
@@ -100,9 +103,14 @@ export interface AuthContextValue {
 	logout: () => Promise<void>;
 	resendVerification: () => Promise<void>;
 	resetPassword: (email: string) => Promise<void>;
-	setup2FA: () => Promise<{ secret: string; qrCodeUrl: string }>;
+	setup2FA: () => Promise<{
+		secret: string;
+		qrCodeUrl: string;
+		recoveryCodes: string[];
+	}>;
 	verify2FA: (token: string) => Promise<boolean>;
 	disable2FA: () => Promise<void>;
 	check2FAStatus: () => Promise<boolean>;
+	recover2FA: (code: string) => Promise<{ success: boolean; message: string }>;
 	clearError: () => void;
 }
