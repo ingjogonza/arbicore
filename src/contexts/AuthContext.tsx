@@ -34,11 +34,18 @@ const initialTwoFactor: TwoFactorState = {
 	requires2FA: false,
 };
 
+const initialOnboarding = {
+	has2FA: false,
+	hasApiKeys: false,
+	loading: true,
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 	children,
 }) => {
 	const [state, setState] = useState<AuthState>(initialState);
 	const [twoFactor, setTwoFactor] = useState<TwoFactorState>(initialTwoFactor);
+	const [onboarding, setOnboarding] = useState(initialOnboarding);
 	const API_BASE = env.VITE_API_BASE_URL || "http://localhost:3000";
 
 	// Session recovery on mount + auth state listener
@@ -158,10 +165,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 				// If 2FA check fails, continue without requiring it
 			}
 
+			// Fetch onboarding status after login
+			setTimeout(() => fetchOnboardingStatus(), 0);
+
 			return false; // No 2FA required
 		},
 		[API_BASE],
 	);
+
+	const fetchOnboardingStatus = useCallback(async () => {
+		if (!state.session) return;
+		setOnboarding((prev) => ({ ...prev, loading: true }));
+		try {
+			const [twofaRes, keysRes] = await Promise.all([
+				fetch(`${API_BASE}/api/auth/2fa/status`, {
+					headers: { Authorization: `Bearer ${state.session.access_token}` },
+				}),
+				fetch(`${API_BASE}/api/keys/status`, {
+					headers: { Authorization: `Bearer ${state.session.access_token}` },
+				}),
+			]);
+			const twofaData = await twofaRes.json();
+			const keysData = await keysRes.json();
+			setOnboarding({
+				has2FA: twofaData.success ? !!twofaData.data?.enabled : false,
+				hasApiKeys: keysData.success ? !!keysData.data?.hasKeys : false,
+				loading: false,
+			});
+		} catch {
+			setOnboarding({ has2FA: false, hasApiKeys: false, loading: false });
+		}
+	}, [state.session, API_BASE]);
 
 	const register = useCallback(async (data: RegisterData) => {
 		setState((prev) => ({ ...prev, loading: true, error: null }));
@@ -343,11 +377,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 		setState((prev) => ({ ...prev, error: null }));
 	}, []);
 
+	// Fetch onboarding status when session changes (e.g. after 2FA verification)
+	useEffect(() => {
+		if (state.session && !state.loading) {
+			fetchOnboardingStatus();
+		}
+	}, [state.session, state.loading, fetchOnboardingStatus]);
+
 	return (
 		<AuthContext.Provider
 			value={{
 				state,
 				twoFactor,
+				onboarding,
 				login,
 				register,
 				logout,
@@ -358,6 +400,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 				disable2FA,
 				check2FAStatus,
 				recover2FA,
+				fetchOnboardingStatus,
 				clearError,
 			}}
 		>

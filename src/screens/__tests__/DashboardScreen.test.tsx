@@ -11,6 +11,7 @@ import { DashboardScreen } from "../DashboardScreen";
 jest.mock("../../contexts/AuthContext", () => ({
 	useAuth: jest.fn().mockReturnValue({
 		state: { user: null, loading: false },
+		onboarding: { has2FA: true, hasApiKeys: true, loading: false },
 		logout: jest.fn(),
 	}),
 }));

@@ -95,9 +95,16 @@ export interface TwoFactorState {
 	recoveryCodes?: string[];
 }
 
+export interface OnboardingStatus {
+	has2FA: boolean;
+	hasApiKeys: boolean;
+	loading: boolean;
+}
+
 export interface AuthContextValue {
 	state: AuthState;
 	twoFactor: TwoFactorState;
+	onboarding: OnboardingStatus;
 	login: (email: string, password: string) => Promise<boolean>;
 	register: (data: RegisterData) => Promise<void>;
 	logout: () => Promise<void>;
@@ -112,5 +119,6 @@ export interface AuthContextValue {
 	disable2FA: () => Promise<void>;
 	check2FAStatus: () => Promise<boolean>;
 	recover2FA: (code: string) => Promise<{ success: boolean; message: string }>;
+	fetchOnboardingStatus: () => Promise<void>;
 	clearError: () => void;
 }
