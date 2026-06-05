@@ -70,7 +70,7 @@ jest.mock("../../components/layout/DashboardLayout", () => ({
 }));
 
 jest.mock("../../components/ui/Modal", () => ({
-		Modal: ({
+	Modal: ({
 		isOpen,
 		children,
 	}: {
@@ -149,7 +149,9 @@ describe("SettingsScreen", () => {
 			fireEvent.click(
 				screen.getAllByRole("button", { name: /account settings/i })[0],
 			);
-			expect(screen.getByText(/autenticaci.n en dos pasos/i)).toBeInTheDocument();
+			expect(
+				screen.getByText(/autenticaci.n en dos pasos/i),
+			).toBeInTheDocument();
 		});
 
 		test("switches to API section when API Management is clicked", () => {
@@ -158,9 +160,7 @@ describe("SettingsScreen", () => {
 					<SettingsScreen />
 				</BrowserRouter>,
 			);
-			fireEvent.click(
-				screen.getByRole("button", { name: /api management/i }),
-			);
+			fireEvent.click(screen.getByRole("button", { name: /api management/i }));
 			expect(
 				screen.getByText(/your api keys are encrypted at rest/i),
 			).toBeInTheDocument();
@@ -175,9 +175,7 @@ describe("SettingsScreen", () => {
 			fireEvent.click(
 				screen.getByRole("button", { name: /risk configuration/i }),
 			);
-			expect(
-				screen.getByText(/risk profile/i),
-			).toBeInTheDocument();
+			expect(screen.getByText(/risk profile/i)).toBeInTheDocument();
 		});
 
 		test("switches to danger section when Danger Zone is clicked", () => {
@@ -186,9 +184,7 @@ describe("SettingsScreen", () => {
 					<SettingsScreen />
 				</BrowserRouter>,
 			);
-			fireEvent.click(
-				screen.getByRole("button", { name: /danger zone/i }),
-			);
+			fireEvent.click(screen.getByRole("button", { name: /danger zone/i }));
 			expect(
 				screen.getByText(/these actions are irreversible/i),
 			).toBeInTheDocument();
@@ -216,18 +212,36 @@ describe("SettingsScreen", () => {
 					<SettingsScreen />
 				</BrowserRouter>,
 			);
-			expect(
-				screen.getByText(/all documents accepted/i),
-			).toBeInTheDocument();
+			expect(screen.getByText(/all documents accepted/i)).toBeInTheDocument();
 		});
 
 		test("shows partial acceptance status", () => {
 			mockUseTrading.mockReturnValue({
 				legalDocs: [
-					{ id: "tos", title: "Terms of Service", description: "", accepted: true },
-					{ id: "risk", title: "Risk Disclosure", description: "", accepted: false },
-					{ id: "api", title: "API Authorization Agreement", description: "", accepted: false },
-					{ id: "custody", title: "No Custody Policy", description: "", accepted: false },
+					{
+						id: "tos",
+						title: "Terms of Service",
+						description: "",
+						accepted: true,
+					},
+					{
+						id: "risk",
+						title: "Risk Disclosure",
+						description: "",
+						accepted: false,
+					},
+					{
+						id: "api",
+						title: "API Authorization Agreement",
+						description: "",
+						accepted: false,
+					},
+					{
+						id: "custody",
+						title: "No Custody Policy",
+						description: "",
+						accepted: false,
+					},
 				],
 				acceptDocument: mockAcceptDocument,
 				disconnectApi: mockDisconnectApi,
@@ -307,9 +321,7 @@ describe("SettingsScreen", () => {
 				twoFactor: { enabled: true, setupComplete: true, requires2FA: false },
 			});
 			renderAndClickAccount();
-			expect(
-				screen.getByText(/2fa activado/i),
-			).toBeInTheDocument();
+			expect(screen.getByText(/2fa activado/i)).toBeInTheDocument();
 		});
 
 		test("shows fallback dash when user data is missing", () => {
@@ -329,9 +341,7 @@ describe("SettingsScreen", () => {
 					<SettingsScreen />
 				</BrowserRouter>,
 			);
-			fireEvent.click(
-				screen.getByRole("button", { name: /api management/i }),
-			);
+			fireEvent.click(screen.getByRole("button", { name: /api management/i }));
 			expect(
 				screen.getByText(/your api keys are encrypted at rest using aes-256/i),
 			).toBeInTheDocument();
@@ -343,12 +353,8 @@ describe("SettingsScreen", () => {
 					<SettingsScreen />
 				</BrowserRouter>,
 			);
-			fireEvent.click(
-				screen.getByRole("button", { name: /api management/i }),
-			);
-			expect(
-				screen.getByText(/connected api key/i),
-			).toBeInTheDocument();
+			fireEvent.click(screen.getByRole("button", { name: /api management/i }));
+			expect(screen.getByText(/connected api key/i)).toBeInTheDocument();
 		});
 	});
 
@@ -378,9 +384,7 @@ describe("SettingsScreen", () => {
 			fireEvent.click(
 				screen.getByRole("button", { name: /risk configuration/i }),
 			);
-			expect(
-				screen.getByDisplayValue("10"),
-			).toBeInTheDocument();
+			expect(screen.getByDisplayValue("10")).toBeInTheDocument();
 		});
 
 		test("renders save configuration button", () => {
@@ -405,18 +409,12 @@ describe("SettingsScreen", () => {
 					<SettingsScreen />
 				</BrowserRouter>,
 			);
-			fireEvent.click(
-				screen.getByRole("button", { name: /danger zone/i }),
-			);
+			fireEvent.click(screen.getByRole("button", { name: /danger zone/i }));
 		});
 
 		test("renders disconnect and delete options", () => {
-			expect(
-				screen.getByText(/disconnect binance api/i),
-			).toBeInTheDocument();
-			expect(
-				screen.getByText(/delete account/i),
-			).toBeInTheDocument();
+			expect(screen.getByText(/disconnect binance api/i)).toBeInTheDocument();
+			expect(screen.getByText(/delete account/i)).toBeInTheDocument();
 		});
 
 		test("opens disconnect modal and confirms disconnect", () => {
@@ -429,7 +427,9 @@ describe("SettingsScreen", () => {
 			).toBeInTheDocument();
 
 			// Confirm disconnect
-			const confirmBtns = screen.getAllByRole("button", { name: /disconnect/i });
+			const confirmBtns = screen.getAllByRole("button", {
+				name: /disconnect/i,
+			});
 			fireEvent.click(confirmBtns[confirmBtns.length - 1]);
 
 			expect(mockDisconnectApi).toHaveBeenCalled();
@@ -445,9 +445,7 @@ describe("SettingsScreen", () => {
 				screen.getByText(/this will stop all automated trading/i),
 			).toBeInTheDocument();
 
-			fireEvent.click(
-				screen.getByRole("button", { name: /cancel/i }),
-			);
+			fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
 
 			expect(
 				screen.queryByText(/this will stop all automated trading/i),
@@ -455,9 +453,7 @@ describe("SettingsScreen", () => {
 		});
 
 		test("opens delete account modal", () => {
-			fireEvent.click(
-				screen.getByRole("button", { name: /^delete$/i }),
-			);
+			fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
 
 			expect(
 				screen.getByText(/this action cannot be undone/i),
@@ -465,17 +461,13 @@ describe("SettingsScreen", () => {
 		});
 
 		test("closes delete modal on cancel", () => {
-			fireEvent.click(
-				screen.getByRole("button", { name: /^delete$/i }),
-			);
+			fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
 
 			expect(
 				screen.getByText(/this action cannot be undone/i),
 			).toBeInTheDocument();
 
-			fireEvent.click(
-				screen.getByRole("button", { name: /^cancel$/i }),
-			);
+			fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
 
 			expect(
 				screen.queryByText(/this action cannot be undone/i),

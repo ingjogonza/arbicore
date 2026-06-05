@@ -26,9 +26,7 @@ describe("OnboardingScreen", () => {
 		);
 		expect(screen.getByText("CryptoInvestor")).toBeInTheDocument();
 		expect(
-			screen.getByText(
-				"Automated Execution. Full Custody. Transparent Fees.",
-			),
+			screen.getByText("Automated Execution. Full Custody. Transparent Fees."),
 		).toBeInTheDocument();
 	});
 
@@ -76,9 +74,7 @@ describe("OnboardingScreen", () => {
 			),
 		).toBeInTheDocument();
 		expect(
-			screen.getByText(
-				/withdraw anytime. only 7% fee on profits withdrawn/i,
-			),
+			screen.getByText(/withdraw anytime. only 7% fee on profits withdrawn/i),
 		).toBeInTheDocument();
 	});
 
@@ -135,9 +131,7 @@ describe("OnboardingScreen", () => {
 			</BrowserRouter>,
 		);
 		expect(
-			screen.getByText(
-				/no custodial trading automation software/i,
-			),
+			screen.getByText(/no custodial trading automation software/i),
 		).toBeInTheDocument();
 	});
 
@@ -147,9 +141,7 @@ describe("OnboardingScreen", () => {
 				<OnboardingScreen />
 			</BrowserRouter>,
 		);
-		expect(
-			screen.getByText(/no credit card required/i),
-		).toBeInTheDocument();
+		expect(screen.getByText(/no credit card required/i)).toBeInTheDocument();
 	});
 
 	test("renders decorative SVG in desktop panel", () => {

@@ -48,9 +48,7 @@ describe("VerifyEmailScreen", () => {
 	test("renders spam tip", () => {
 		renderVerifyEmail();
 
-		expect(
-			screen.getByText(/revisá tu carpeta de spam/i),
-		).toBeInTheDocument();
+		expect(screen.getByText(/revisá tu carpeta de spam/i)).toBeInTheDocument();
 	});
 
 	test("shows success alert when resend button is clicked", () => {
