@@ -109,7 +109,3 @@ jobs:
 
       - name: Run tests
         run: cd backend && npm test
-
-      - name: Cleanup test data
-        if: always()
-        run: cd backend && npx tsx src/cleanup-tests.ts
