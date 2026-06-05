@@ -1,6 +1,6 @@
 # SDD Apply Progress: DashboardScreen — Real Binance Data
 
-## Status: PR 1 ✅ | PR 2 ✅ | PR 3 (pending)
+## Status: PR 1 ✅ | PR 2 ✅ | PR 3 ✅
 
 ### Completed Tasks
 
@@ -140,10 +140,77 @@ The test output says 83. Let me trust the output.
 
 5. **DashboardTrade.orderId**: Task spec includes `orderId` field. Design doc doesn't list it but Binance API does return `orderId` in trades — included per task spec.
 
-### Remaining Tasks (Future PRs)
+---
 
-- PR 3: Frontend Tasks 6-9 (KPIGrid, EquityChart, BotStatusPanel, RecentTradesTable, DashboardScreen orchestrator rewrite, DashboardScreen integration tests)
+## PR 3: Frontend Components + Orchestrator + Tests (Tasks 6-9) ✅ COMPLETE
 
-### Next Steps
+### Files Created
 
-PR 2 ready for review. All 23 new tests pass. Types appended correctly. Backend API contract consumed by useDashboard hook. OnboardingBanner extracted from DashboardScreen inline JSX with improved testability (callbacks instead of direct navigation, localStorage persistence).
+| File | Lines | Description |
+|------|-------|-------------|
+| `src/components/dashboard/KPIGrid.tsx` | ~55 | 5-KPI grid using KPICard, receives pre-computed values |
+| `src/components/dashboard/__tests__/KPIGrid.test.tsx` | ~87 | 7 tests: renders 5 KPIs, formatted values, zero/negative values |
+| `src/components/dashboard/EquityChart.tsx` | ~115 | AreaChart from recharts, period buttons, ReferenceLine, empty state |
+| `src/components/dashboard/__tests__/EquityChart.test.tsx` | ~72 | 7 tests: period buttons, empty state, selected state toggle |
+| `src/components/dashboard/BotStatusPanel.tsx` | ~85 | Bot status with badge, dot indicator, toggle/withdraw/risk buttons |
+| `src/components/dashboard/__tests__/BotStatusPanel.test.tsx` | ~155 | 11 tests: active/inactive states, button callbacks, null runningSince |
+| `src/components/dashboard/RecentTradesTable.tsx` | ~115 | Trade table with symbol formatting, BUY/SELL badges, unix date |
+| `src/components/dashboard/__tests__/RecentTradesTable.test.tsx` | ~100 | 8 tests: rows, badges, empty state, all column headers |
+
+### Files Modified
+
+| File | Lines | Change |
+|------|-------|--------|
+| `src/screens/DashboardScreen.tsx` | 171 (down from ~240) | Full rewrite: thin orchestrator using useDashboard + sub-components |
+| `src/screens/__tests__/DashboardScreen.test.tsx` | ~305 (rewritten) | 14 tests: happy path, loading, fatal error, partial errors, onboarding |
+
+### Test Results
+
+```
+Frontend: 323 tests | 29 suites | 0 failures
+Backend:  83 tests  | 27 suites | 0 failures
+```
+
+- 33 new frontend tests: 7 (KPIGrid) + 7 (EquityChart) + 11 (BotStatusPanel) + 8 (RecentTradesTable)
+- DashboardScreen tests rewritten: old 9 tests → new 14 tests (net +5)
+- Zero regressions across all 323 frontend + 83 backend tests
+
+### TDD Cycle Evidence (Tasks 6-9)
+
+| Phase | Task | Test File | Cycle |
+|-------|------|-----------|-------|
+| RED | 6a | KPIGrid.test.tsx | Module didn't exist → compile error |
+| GREEN | 6a | KPIGrid.tsx | Implemented 5-KPI grid with formatted values |
+| RED | 6b | EquityChart.test.tsx | Module didn't exist → compile error |
+| GREEN | 6b | EquityChart.tsx | Implemented AreaChart, period buttons, empty state |
+| RED | 7a | BotStatusPanel.test.tsx | Module didn't exist → compile error |
+| GREEN | 7a | BotStatusPanel.tsx | Implemented status card with badges + action buttons |
+| RED | 7b | RecentTradesTable.test.tsx | Module didn't exist → compile error |
+| GREEN | 7b | RecentTradesTable.tsx | Implemented trade table with BUY/SELL badges |
+| RED | 8+9 | DashboardScreen.test.tsx | Tests failed — old screen used useTrading, not useDashboard |
+| GREEN | 8+9 | DashboardScreen.tsx | Full rewrite as orchestrator with sub-components |
+| REFACTOR | 8+9 | — | Fixed test mocks for TopBar (useTrading user) and useAuth (state, logout) |
+
+### Deviations from Design
+
+1. **KPIGrid props**: Task spec passes pre-computed values as props (`grossProfit`, `performance`, `pendingFee`). Design had KPIGrid computing them internally. Followed task spec — orchestrator computes, KPIGrid is purely presentational.
+
+2. **EquityChart props**: Task spec uses only `data` prop. Design included `initialBalance` prop. Initial balance is computed internally from `data[0].value` — simpler API, no external KPI computation needed.
+
+3. **BotStatusPanel props**: Task spec uses `DashboardBotStatus` object (with `active: boolean`). Design used string union `'active' | 'paused' | 'error'`. Followed task spec — binary active/inactive, badge derived (`Active`=success, `Paused`=warning), no "error" state in v1.
+
+4. **DashboardScreen `currentBalance`**: Task spec uses `balances.find(a=>a.asset==='FDUSD')?.free` (free only). Design used free + locked. Followed task spec — simpler, free balance is what matters for KPI display.
+
+5. **DashboardScreen toggleBot**: Task spec requires placeholder no-op (not useTrading). Implemented `onToggleBot={() => { /* placeholder */ }}`. Future PR will wire to backend toggle.
+
+6. **DashboardScreen onboarding**: Task spec passes `onSetup2FA` and `onConnectApi` callbacks (wrapping `useNavigate`). DashboardScreen creates these callbacks — consistent with OnboardingBanner's callback-based API.
+
+7. **Trust Reminder**: Changed from `<button>` to `<a>` tag with Binance wallet URL (correct semantics for external link).
+
+### Acceptance Criteria
+
+- ✅ All 323 frontend tests pass + 83 backend tests pass
+- ✅ DashboardScreen.tsx is a thin orchestrator (171 lines, down from ~240)
+- ✅ Sub-components are pure presentational with no side effects
+- ✅ Tests cover: render, empty state, error state, interactions (callbacks, modal)
+- ✅ No regressions — all existing screens that use useTrading still work (App.tsx references TradingProvider, DashboardScreen no longer imports useTrading directly)

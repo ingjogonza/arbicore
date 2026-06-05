@@ -1,276 +1,291 @@
 // ============================================
-// DASHBOARD SCREEN TESTS
+// DASHBOARD SCREEN TESTS (REWRITTEN FOR REAL DATA)
 // ============================================
-// Tests only developed functionality (KPIs, bot status, trades table, withdraw modal toggle).
-// Does NOT test placeholder buttons (period selectors, Risk Settings, View All).
 
 import { render, screen, fireEvent } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { DashboardScreen } from "../DashboardScreen";
 
-jest.mock("../../contexts/AuthContext", () => ({
-	useAuth: jest.fn().mockReturnValue({
-		state: { user: null, loading: false },
-		onboarding: { has2FA: true, hasApiKeys: true, loading: false },
-		logout: jest.fn(),
-	}),
+// ── Mocks ──
+
+jest.mock("../../hooks/useDashboard", () => ({
+	useDashboard: jest.fn(),
 }));
 
 jest.mock("../../hooks/useTrading", () => ({
-	useTrading: jest.fn(),
+	useTrading: jest.fn().mockReturnValue({
+		user: { name: "Test User", email: "test@example.com", avatar: "TU" },
+		account: {
+			initialBalance: 12500,
+			currentBalance: 14832.5,
+			apiConnected: true,
+			apiKey: "test-key",
+			botStatus: "active",
+			botRunningSince: "2026-01-15",
+			strategy: "Conservative Spot Trading",
+		},
+		trades: [],
+		toggleBot: jest.fn(),
+		withdraw: jest.fn(),
+	}),
 }));
 
-import { useTrading } from "../../hooks/useTrading";
+jest.mock("../../contexts/AuthContext", () => ({
+	useAuth: jest.fn(),
+}));
 
-const mockToggleBot = jest.fn();
-const mockWithdraw = jest.fn();
+import { useDashboard } from "../../hooks/useDashboard";
+import { useAuth } from "../../contexts/AuthContext";
 
-describe("DashboardScreen", () => {
-	beforeEach(() => {
-		jest.clearAllMocks();
-		(useTrading as jest.Mock).mockReturnValue({
-			user: { name: "Alex Rivera", email: "alex@example.com", avatar: "AR" },
-			account: {
-				initialBalance: 12500.0,
-				currentBalance: 14832.5,
-				apiConnected: true,
-				apiKey: "••••••••••••••••",
-				botStatus: "active",
-				botRunningSince: "2026-01-15",
-				strategy: "Conservative Spot Trading",
-			},
-			trades: [
-				{
-					id: "1",
-					date: "2026-05-07 14:30",
-					pair: "BTC/USDT",
-					type: "buy",
-					amount: 0.15,
-					price: 97415.2,
-					pnl: 0,
-					status: "completed",
-				},
-				{
-					id: "2",
-					date: "2026-05-07 12:15",
-					pair: "ETH/USDT",
-					type: "sell",
-					amount: 2.5,
-					price: 3852.4,
-					pnl: 125.5,
-					status: "completed",
-				},
-			],
-			toggleBot: mockToggleBot,
-			withdraw: mockWithdraw,
+const mockUseDashboard = useDashboard as jest.Mock;
+const mockUseAuth = useAuth as jest.Mock;
+
+const mockRefetch = jest.fn();
+
+// ── Default mock data (happy path) ──
+
+const defaultDashboardData = {
+	balances: [
+		{ asset: "FDUSD", free: "14832.50", locked: "0.00" },
+		{ asset: "BTC", free: "0.50000000", locked: "0.00000000" },
+	],
+	trades: [
+		{
+			id: 1,
+			symbol: "BTCFDUSD",
+			orderId: 100,
+			price: "50000.00",
+			qty: "0.01000000",
+			quoteQty: "500.00",
+			commission: "0.50",
+			commissionAsset: "FDUSD",
+			time: 1717000000000,
+			isBuyer: true,
+			isMaker: false,
+		},
+		{
+			id: 2,
+			symbol: "ETHFDUSD",
+			orderId: 101,
+			price: "3000.00",
+			qty: "1.50000000",
+			quoteQty: "4500.00",
+			commission: "4.50",
+			commissionAsset: "FDUSD",
+			time: 1717000100000,
+			isBuyer: false,
+			isMaker: true,
+		},
+	],
+	equityHistory: [
+		{ date: "Jan 15", value: 12500 },
+		{ date: "May 7", value: 14832 },
+	],
+	botStatus: {
+		active: true,
+		runningSince: "2026-01-15T00:00:00.000Z",
+		strategy: "Conservative Spot Trading",
+	},
+};
+
+beforeEach(() => {
+	jest.clearAllMocks();
+
+	// Default: happy path — data loaded, onboarding complete
+	mockUseDashboard.mockReturnValue({
+		data: defaultDashboardData,
+		loading: false,
+		error: null,
+		errors: [],
+		refetch: mockRefetch,
+	});
+
+	mockUseAuth.mockReturnValue({
+		state: { user: null, session: null, loading: false },
+		logout: jest.fn(),
+		onboarding: { has2FA: true, hasApiKeys: true, loading: false },
+	});
+});
+
+// ── Helper ──
+
+const renderDashboard = () =>
+	render(
+		<BrowserRouter>
+			<DashboardScreen />
+		</BrowserRouter>,
+	);
+
+// ── Tests ──
+
+describe("DashboardScreen (rewritten)", () => {
+	describe("happy path — data loaded", () => {
+		test("renders KPI cards via sub-components", () => {
+			renderDashboard();
+
+			expect(screen.getByText(/Initial Balance/i)).toBeInTheDocument();
+			expect(screen.getByText(/Current Balance/i)).toBeInTheDocument();
+			expect(screen.getByText(/Net Profit/i)).toBeInTheDocument();
+			expect(screen.getByText(/Performance/i)).toBeInTheDocument();
+			expect(screen.getByText(/Pending Fee/i)).toBeInTheDocument();
 		});
-	});
 
-	test("renders KPI cards with correct values", () => {
-		render(
-			<BrowserRouter>
-				<DashboardScreen />
-			</BrowserRouter>,
-		);
-		expect(screen.getByText(/Initial Balance/i)).toBeInTheDocument();
-		expect(screen.getByText(/12,500.00 USDT/)).toBeInTheDocument();
-		expect(screen.getByText(/Current Balance/i)).toBeInTheDocument();
-		expect(screen.getByText(/14,832.50 USDT/)).toBeInTheDocument();
-	});
+		test("renders bot status panel", () => {
+			renderDashboard();
 
-	test("renders bot status panel", () => {
-		render(
-			<BrowserRouter>
-				<DashboardScreen />
-			</BrowserRouter>,
-		);
-		expect(screen.getByText(/Bot Status/i)).toBeInTheDocument();
-		expect(screen.getByText("Active")).toBeInTheDocument();
-		expect(screen.getByText(/Conservative Spot Trading/i)).toBeInTheDocument();
-	});
-
-	test("calls toggleBot when pause/resume button is clicked", () => {
-		render(
-			<BrowserRouter>
-				<DashboardScreen />
-			</BrowserRouter>,
-		);
-		const button = screen.getByRole("button", { name: /pause bot/i });
-		fireEvent.click(button);
-		expect(mockToggleBot).toHaveBeenCalledTimes(1);
-	});
-
-	test("renders recent trades table", () => {
-		render(
-			<BrowserRouter>
-				<DashboardScreen />
-			</BrowserRouter>,
-		);
-		expect(screen.getByText(/Recent Operations/i)).toBeInTheDocument();
-		expect(screen.getByText("BTC/USDT")).toBeInTheDocument();
-		expect(screen.getByText("ETH/USDT")).toBeInTheDocument();
-	});
-
-	test("opens withdraw modal on button click", () => {
-		render(
-			<BrowserRouter>
-				<DashboardScreen />
-			</BrowserRouter>,
-		);
-		const withdrawButton = screen.getByRole("button", {
-			name: /withdraw profits/i,
+			expect(screen.getByText(/Bot Status/i)).toBeInTheDocument();
+			expect(screen.getByText("Active")).toBeInTheDocument();
+			expect(screen.getByText("Conservative Spot Trading")).toBeInTheDocument();
 		});
-		fireEvent.click(withdrawButton);
-		expect(
-			screen.getByRole("heading", { name: /Withdraw Profits/i }),
-		).toBeInTheDocument();
-	});
 
-	test("renders trust reminder alert", () => {
-		render(
-			<BrowserRouter>
-				<DashboardScreen />
-			</BrowserRouter>,
-		);
-		expect(
-			screen.getByText(/Your funds are in your Binance account/i),
-		).toBeInTheDocument();
-	});
+		test("renders recent trades table", () => {
+			renderDashboard();
 
-	describe("botStatus branches", () => {
-		test("shows paused bot status", () => {
-			(useTrading as jest.Mock).mockReturnValue({
-				user: { name: "Alex", email: "alex@test.com", avatar: "A" },
-				account: {
-					initialBalance: 12500,
-					currentBalance: 14832.5,
-					apiConnected: true,
-					apiKey: "••••••••••••••",
-					botStatus: "paused",
-					botRunningSince: "2026-01-15",
-					strategy: "Conservative",
-				},
-				trades: [],
-				toggleBot: mockToggleBot,
-				withdraw: mockWithdraw,
-			});
+			expect(screen.getByText(/Recent Operations/i)).toBeInTheDocument();
+			expect(screen.getByText("BUY")).toBeInTheDocument();
+			expect(screen.getByText("SELL")).toBeInTheDocument();
+		});
 
-			render(
-				<BrowserRouter>
-					<DashboardScreen />
-				</BrowserRouter>,
-			);
+		test("renders equity chart", () => {
+			renderDashboard();
 
-			expect(screen.getByText("Paused")).toBeInTheDocument();
+			expect(screen.getByText(/Equity Curve/i)).toBeInTheDocument();
+		});
+
+		test("renders trust reminder alert", () => {
+			renderDashboard();
+
 			expect(
-				screen.getByRole("button", { name: /resume bot/i }),
+				screen.getByText(/Your funds are in your Binance account/i),
 			).toBeInTheDocument();
 		});
 
-		test("shows error bot status", () => {
-			(useTrading as jest.Mock).mockReturnValue({
-				user: { name: "Alex", email: "alex@test.com", avatar: "A" },
-				account: {
-					initialBalance: 12500,
-					currentBalance: 14832.5,
-					apiConnected: true,
-					apiKey: "••••••••••••••",
-					botStatus: "error",
-					botRunningSince: "2026-01-15",
-					strategy: "Conservative",
-				},
-				trades: [],
-				toggleBot: mockToggleBot,
-				withdraw: mockWithdraw,
+		test("opens withdraw modal on button click", () => {
+			renderDashboard();
+
+			const withdrawButton = screen.getByRole("button", {
+				name: /withdraw profits/i,
 			});
+			fireEvent.click(withdrawButton);
 
-			render(
-				<BrowserRouter>
-					<DashboardScreen />
-				</BrowserRouter>,
-			);
-
-			expect(screen.getByText("Error")).toBeInTheDocument();
 			expect(
-				screen.getByRole("button", { name: /resume bot/i }),
+				screen.getByRole("heading", { name: /Withdraw Profits/i }),
 			).toBeInTheDocument();
+		});
+
+		test("shows all-set onboarding banner when configured", () => {
+			renderDashboard();
+
+			expect(screen.getByText(/todo listo para operar/i)).toBeInTheDocument();
 		});
 	});
 
-	describe("trade P&L branches", () => {
-		test("shows red P&L for negative trade", () => {
-			(useTrading as jest.Mock).mockReturnValue({
-				user: { name: "Alex", email: "alex@test.com", avatar: "A" },
-				account: {
-					initialBalance: 12500,
-					currentBalance: 14832.5,
-					apiConnected: true,
-					apiKey: "••••••••••••••",
-					botStatus: "active",
-					botRunningSince: "2026-01-15",
-					strategy: "Conservative",
-				},
-				trades: [
-					{
-						id: "1",
-						date: "2026-05-07 14:30",
-						pair: "BTC/USDT",
-						type: "buy",
-						amount: 0.15,
-						price: 97415.2,
-						pnl: -50.25,
-						status: "completed",
-					},
-				],
-				toggleBot: mockToggleBot,
-				withdraw: mockWithdraw,
+	describe("loading state", () => {
+		beforeEach(() => {
+			mockUseDashboard.mockReturnValue({
+				data: null,
+				loading: true,
+				error: null,
+				errors: [],
+				refetch: mockRefetch,
 			});
-
-			render(
-				<BrowserRouter>
-					<DashboardScreen />
-				</BrowserRouter>,
-			);
-
-			expect(screen.getByText(/-50\.25/)).toBeInTheDocument();
+			mockUseAuth.mockReturnValue({
+				state: { user: null, session: null, loading: false },
+				logout: jest.fn(),
+				onboarding: { has2FA: false, hasApiKeys: false, loading: true },
+			});
 		});
 
-		test("shows zero P&L as neutral", () => {
-			(useTrading as jest.Mock).mockReturnValue({
-				user: { name: "Alex", email: "alex@test.com", avatar: "A" },
-				account: {
-					initialBalance: 12500,
-					currentBalance: 14832.5,
-					apiConnected: true,
-					apiKey: "••••••••••••••",
-					botStatus: "active",
-					botRunningSince: "2026-01-15",
-					strategy: "Conservative",
+		test("shows loading skeleton when loading and no data", () => {
+			renderDashboard();
+
+			// The skeleton renders 5 pulsing placeholder divs
+			const skeletonItems = document.querySelectorAll(".animate-pulse");
+			expect(skeletonItems.length).toBeGreaterThanOrEqual(5);
+		});
+	});
+
+	describe("error state", () => {
+		beforeEach(() => {
+			mockUseDashboard.mockReturnValue({
+				data: null,
+				loading: false,
+				error: "Authentication expired. Please log in again.",
+				errors: [],
+				refetch: mockRefetch,
+			});
+		});
+
+		test("shows fatal error alert", () => {
+			renderDashboard();
+
+			expect(screen.getByText(/Authentication expired/i)).toBeInTheDocument();
+		});
+
+		test("shows retry button in fatal error", () => {
+			renderDashboard();
+
+			const retryBtn = screen.getByText(/Retry/i);
+			expect(retryBtn).toBeInTheDocument();
+
+			fireEvent.click(retryBtn);
+			expect(mockRefetch).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe("partial errors", () => {
+		beforeEach(() => {
+			mockUseDashboard.mockReturnValue({
+				data: {
+					...defaultDashboardData,
+					trades: null,
 				},
-				trades: [
-					{
-						id: "1",
-						date: "2026-05-07 14:30",
-						pair: "BTC/USDT",
-						type: "buy",
-						amount: 0.15,
-						price: 97415.2,
-						pnl: 0,
-						status: "completed",
-					},
-				],
-				toggleBot: mockToggleBot,
-				withdraw: mockWithdraw,
+				loading: false,
+				error: null,
+				errors: [{ source: "trades", message: "Failed to fetch trades" }],
+				refetch: mockRefetch,
+			});
+		});
+
+		test("shows partial error alert when errors array is non-empty", () => {
+			renderDashboard();
+
+			expect(screen.getByText(/Failed to fetch trades/i)).toBeInTheDocument();
+		});
+
+		test("still renders available data when partial errors exist", () => {
+			renderDashboard();
+
+			// KPIs should still render
+			expect(screen.getByText(/Initial Balance/i)).toBeInTheDocument();
+			// Bot status should still render
+			expect(screen.getByText(/Bot Status/i)).toBeInTheDocument();
+		});
+	});
+
+	describe("onboarding banner", () => {
+		test("shows onboarding banner when missing 2FA", () => {
+			mockUseAuth.mockReturnValue({
+				state: { user: null, session: null, loading: false },
+				logout: jest.fn(),
+				onboarding: { has2FA: false, hasApiKeys: true, loading: false },
 			});
 
-			render(
-				<BrowserRouter>
-					<DashboardScreen />
-				</BrowserRouter>,
-			);
+			renderDashboard();
 
-			// P&L of 0 should render without + or - sign
-			expect(screen.getByText("0.00")).toBeInTheDocument();
+			expect(screen.getByText(/configurar 2fa/i)).toBeInTheDocument();
+		});
+
+		test("shows onboarding banner when missing API keys", () => {
+			mockUseAuth.mockReturnValue({
+				state: { user: null, session: null, loading: false },
+				logout: jest.fn(),
+				onboarding: { has2FA: true, hasApiKeys: false, loading: false },
+			});
+
+			renderDashboard();
+
+			expect(screen.getByText(/conectar api/i)).toBeInTheDocument();
 		});
 	});
 });
