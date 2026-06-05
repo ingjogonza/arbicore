@@ -1,0 +1,115 @@
+# ============================================
+# CryptoInvestor — CI Pipeline
+# ============================================
+# Corre typecheck y tests en push a main y PRs.
+#
+# Secrets requeridos (GitHub → Settings → Secrets and variables → Actions):
+#   SUPABASE_URL               — https://tu-proyecto.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY  — service_role_key de Supabase
+#   MASTER_KEY                 — node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+# ============================================
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # ─────────────────────────────────────────────
+  # FRONTEND: typecheck
+  # ─────────────────────────────────────────────
+  typecheck-frontend:
+    name: Typecheck Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  # ─────────────────────────────────────────────
+  # BACKEND: typecheck
+  # ─────────────────────────────────────────────
+  typecheck-backend:
+    name: Typecheck Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: cd backend && npm ci
+      - run: cd backend && npx tsc --noEmit
+
+  # ─────────────────────────────────────────────
+  # FRONTEND: tests (Jest + jsdom, sin infra)
+  # ─────────────────────────────────────────────
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+      - run: npm test
+
+  # ─────────────────────────────────────────────
+  # BACKEND: tests (Node native runner + MongoDB)
+  # ─────────────────────────────────────────────
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      MONGODB_URI: mongodb://localhost:27017/cryptoinvestor
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MASTER_KEY: ${{ secrets.MASTER_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: cd backend && npm ci
+
+      - name: Run tests
+        run: cd backend && npm test
+
+      - name: Cleanup test data
+        if: always()
+        run: cd backend && npx tsx src/cleanup-tests.ts
