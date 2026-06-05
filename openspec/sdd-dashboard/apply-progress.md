@@ -1,6 +1,6 @@
 # SDD Apply Progress: DashboardScreen — Real Binance Data
 
-## Status: PR 1 (Backend Tasks 1-3) ✅ COMPLETE
+## Status: PR 1 ✅ | PR 2 ✅ | PR 3 (pending)
 
 ### Completed Tasks
 
@@ -9,6 +9,8 @@
 | 1 | Backend Types + Binance Auth Utils | ✅ |
 | 2 | Backend Services (binanceService + dashboardService) | ✅ |
 | 3 | Backend Route + Registration + Integration Tests | ✅ |
+| 4 | Frontend Types + useDashboard Hook | ✅ |
+| 5 | OnboardingBanner Component | ✅ |
 
 ### Files Created
 
@@ -88,11 +90,60 @@ The test output says 83. Let me trust the output.
 
 3. **buildBotStatus signature**: Simplified to only accept `hasKeys: boolean` (design had `runningSince: Date | null, strategy: string | null`). Running since and strategy are computed internally with v1 defaults (`null` and `'Conservative Spot Trading'`).
 
+---
+
+## PR 2: Frontend Core (Tasks 4-5) ✅ COMPLETE
+
+### Files Created
+
+| File | Lines | Description |
+|------|-------|-------------|
+| `src/hooks/useDashboard.ts` | ~75 | Data fetching hook with auth, loading/error/partial-errors/refetch |
+| `src/hooks/__tests__/useDashboard.test.ts` | ~130 | 10 tests: loading, success, auth, partial errors, network/401/500 errors, no-session, refetch |
+| `src/components/dashboard/OnboardingBanner.tsx` | ~95 | 3-state banner (loading/complete/incomplete) with localStorage persistence |
+| `src/components/dashboard/__tests__/OnboardingBanner.test.tsx` | ~145 | 13 tests: loading, green banner, missing 2FA/API keys, both missing, dismissible, localStorage persistence |
+
+### Files Modified
+
+| File | Lines | Change |
+|------|-------|--------|
+| `src/types/index.ts` | +52 | Appended DashboardBalance, DashboardTrade, DashboardEquityPoint, DashboardBotStatus, DashboardSummaryData, DashboardSummaryResponse, DashboardError |
+
+### Frontend Test Results
+
+```
+286 tests | 25 suites | 0 failures
+```
+
+- 23 new tests: 10 (useDashboard) + 13 (OnboardingBanner)
+- All 263 existing tests pass with zero regressions
+- Key test file: `DashboardScreen.test.tsx` still passes (uses mocked `useTrading` — not yet migrated)
+
+### TDD Cycle Evidence (Task 4 & 5)
+
+| Phase | Task | Test File | Cycle |
+|-------|------|-----------|-------|
+| RED | 4 | useDashboard.test.ts | Module didn't exist → compile error (Cannot find module '../useDashboard') |
+| GREEN | 4 | useDashboard.ts | Implemented hook: fetch with auth, loading/data/error/errors/refetch states |
+| RED | 5 | OnboardingBanner.test.tsx | Module didn't exist → compile error (Cannot find module '../OnboardingBanner') |
+| GREEN | 5 | OnboardingBanner.tsx | Implemented 3-state banner with callbacks + localStorage persistence |
+
+### Deviations from Design
+
+1. **OnboardingBanner props**: Design used `useNavigate` internally. Task spec required `onSetup2FA` and `onConnectApi` callbacks — implemented per task spec. This makes the component more testable and reusable.
+
+2. **OnboardingBanner localStorage**: Task spec required localStorage persistence for dismiss state. Design only used local state. Implemented both: local state initialized from localStorage, saved on dismiss.
+
+3. **OnboardingBanner amber styling**: Design used teal-to-emerald gradient for incomplete state. Task spec says "amber/yellow banner with missing steps" — used amber-500 to yellow-500 gradient per task spec.
+
+4. **useDashboard error handling**: Added proper type narrowing for caught errors (`err instanceof Error`). Design had `catch (err: any)` — TypeScript strict mode prefers this pattern.
+
+5. **DashboardTrade.orderId**: Task spec includes `orderId` field. Design doc doesn't list it but Binance API does return `orderId` in trades — included per task spec.
+
 ### Remaining Tasks (Future PRs)
 
-- PR 2: Frontend Tasks 4-5
-- PR 3: Frontend Tasks 6-9
+- PR 3: Frontend Tasks 6-9 (KPIGrid, EquityChart, BotStatusPanel, RecentTradesTable, DashboardScreen orchestrator rewrite, DashboardScreen integration tests)
 
 ### Next Steps
 
-Ready for PR 2 — Frontend types, useDashboard hook, and OnboardingBanner component.
+PR 2 ready for review. All 23 new tests pass. Types appended correctly. Backend API contract consumed by useDashboard hook. OnboardingBanner extracted from DashboardScreen inline JSX with improved testability (callbacks instead of direct navigation, localStorage persistence).
