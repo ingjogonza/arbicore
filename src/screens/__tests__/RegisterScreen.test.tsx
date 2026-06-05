@@ -401,7 +401,9 @@ describe("RegisterScreen", () => {
 
 		expect(screen.getByText(/t.rminos de servicio/i)).toBeInTheDocument();
 		expect(screen.getByText(/divulgaci.n de riesgos/i)).toBeInTheDocument();
-		expect(screen.getByText(/acuerdo de autorizaci.n api/i)).toBeInTheDocument();
+		expect(
+			screen.getByText(/acuerdo de autorizaci.n api/i),
+		).toBeInTheDocument();
 		expect(screen.getByText(/pol.tica de no custodia/i)).toBeInTheDocument();
 	});
 
@@ -459,6 +461,20 @@ describe("RegisterScreen", () => {
 
 		expect(screen.getByRole("combobox")).toBeInTheDocument();
 		expect(screen.getByText("AR (+54)")).toBeInTheDocument();
+	});
+
+	test("changes country code on selection", () => {
+		render(
+			<BrowserRouter>
+				<RegisterScreen />
+			</BrowserRouter>,
+		);
+
+		const select = screen.getByRole("combobox") as HTMLSelectElement;
+		expect(select.value).toBe("+54");
+
+		fireEvent.change(select, { target: { value: "+1" } });
+		expect(select.value).toBe("+1");
 	});
 
 	test("shows error message when register throws", async () => {
