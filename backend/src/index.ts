@@ -21,6 +21,7 @@ import { legalDocsRoutes } from "./routes/legalDocs";
 import { profileRoutes } from "./routes/profile";
 import { authRoutes } from "./routes/auth";
 import { robotKeysRoutes } from "./routes/robotKeys";
+import { dashboardRoutes } from "./routes/dashboard";
 
 async function buildPublicServer() {
 	const app = Fastify({
@@ -49,6 +50,7 @@ async function buildPublicServer() {
 	await app.register(legalDocsRoutes);
 	await app.register(profileRoutes);
 	await app.register(authRoutes);
+	await app.register(dashboardRoutes);
 
 	return app;
 }

@@ -122,3 +122,54 @@ export interface AuthContextValue {
 	fetchOnboardingStatus: () => Promise<void>;
 	clearError: () => void;
 }
+
+// Dashboard types (from API)
+export interface DashboardBalance {
+	asset: string;
+	free: string;
+	locked: string;
+}
+
+export interface DashboardTrade {
+	id: number;
+	symbol: string;
+	orderId: number;
+	price: string;
+	qty: string;
+	quoteQty: string;
+	commission: string;
+	commissionAsset: string;
+	time: number;
+	isBuyer: boolean;
+	isMaker: boolean;
+}
+
+export interface DashboardEquityPoint {
+	date: string;
+	value: number;
+}
+
+export interface DashboardBotStatus {
+	active: boolean;
+	runningSince: string | null;
+	strategy: string;
+}
+
+export interface DashboardSummaryData {
+	balances: DashboardBalance[] | null;
+	trades: DashboardTrade[] | null;
+	equityHistory: DashboardEquityPoint[] | null;
+	botStatus: DashboardBotStatus;
+}
+
+export interface DashboardSummaryResponse {
+	success: boolean;
+	data: DashboardSummaryData;
+	errors?: Array<{ source: string; message: string; code?: string }>;
+}
+
+export interface DashboardError {
+	source: string;
+	message: string;
+	code?: string;
+}

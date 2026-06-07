@@ -1,5 +1,7 @@
 # CryptoInvestor
 
+[![CI](https://github.com/ingjogonza/arbicore/actions/workflows/ci.yml/badge.svg)](https://github.com/ingjogonza/arbicore/actions/workflows/ci.yml)
+
 Plataforma de trading algorítmico automatizado para Binance. Frontend en React + Vite, backend en Fastify + MongoDB, autenticación con Supabase Auth.
 
 ## Stack Tecnológico

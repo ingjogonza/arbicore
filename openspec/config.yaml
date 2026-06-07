@@ -13,8 +13,8 @@ project:
   strict_tdd: true
   test_command_frontend: "npm test"
   test_command_backend: "cd backend && npm test"
-  test_count: 186
-  test_suites: 18
+  test_count: 406
+  test_suites: 56
   coverage_frontend_lines: "77.27%"
   coverage_frontend_branches: "76.16%"
   coverage_backend_lines: "98.30%"
