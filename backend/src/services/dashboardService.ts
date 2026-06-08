@@ -186,10 +186,15 @@ export async function getDashboardSummary(
 	if (snapshotResult.status === "fulfilled") {
 		equityHistory = mapEquityHistory(snapshotResult.value);
 	} else {
-		errors.push({
-			source: "equity",
-			message: snapshotResult.reason?.message || "Failed to fetch snapshots",
-		});
+		// 404 from accountSnapshot means daily snapshots not enabled.
+		// This is common — silently return null instead of showing an error.
+		const msg = snapshotResult.reason?.message || "";
+		if (!msg.includes("404") && !msg.includes("Daily account snapshot")) {
+			errors.push({
+				source: "equity",
+				message: msg || "Failed to fetch snapshots",
+			});
+		}
 	}
 
 	// Step 6: Compute bot status

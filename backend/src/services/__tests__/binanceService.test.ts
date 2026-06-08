@@ -199,8 +199,8 @@ describe("binanceService", () => {
 					typeof urlOrOpts === "string" ? urlOrOpts : JSON.stringify(urlOrOpts);
 
 				assert.ok(
-					urlStr.includes("/api/v3/accountSnapshot"),
-					"URL should include /api/v3/accountSnapshot",
+					urlStr.includes("/sapi/v1/accountSnapshot"),
+					"URL should include /sapi/v1/accountSnapshot (SAPI endpoint)",
 				);
 				assert.ok(urlStr.includes("type=SPOT"), "URL should include type=SPOT");
 

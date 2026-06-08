@@ -97,14 +97,18 @@ export async function getMyTrades(
 }
 
 /**
- * GET /api/v3/accountSnapshot?type=SPOT — returns historical balance snapshots.
+ * GET /sapi/v1/accountSnapshot?type=SPOT — returns historical balance snapshots.
+ *
+ * Note: This is a SAPI (Wallet API) endpoint, not /api/v3.
+ * Requires the API key to have Spot & Margin Trading permission enabled.
+ * Returns 404 if the account hasn't enabled daily snapshots.
  */
 export async function getAccountSnapshot(
 	apiKey: string,
 	secretKey: string,
 ): Promise<BinanceSnapshotResponse> {
 	return binanceGet<BinanceSnapshotResponse>(
-		"/api/v3/accountSnapshot",
+		"/sapi/v1/accountSnapshot",
 		{ type: "SPOT" },
 		apiKey,
 		secretKey,
