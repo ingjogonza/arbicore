@@ -87,28 +87,31 @@ export const EquityChart: React.FC<EquityChartProps> = ({ data }) => {
 							axisLine={false}
 							tickLine={false}
 						/>
-							<YAxis
-								tick={{ fontSize: 12, fill: "#94a3b8" }}
-								axisLine={false}
-								tickLine={false}
-								tickFormatter={(v: number) =>
-									Number.isFinite(v) ? `$${(v / 1000).toFixed(2)}k` : "$0k"
-								}
-							/>
-							<Tooltip
-								contentStyle={{
-									backgroundColor: "white",
-									border: "1px solid #e2e8f0",
-									borderRadius: "8px",
-									boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
-								}}
-								formatter={(value: number) => [
-									Number.isFinite(value)
-										? `$${value.toLocaleString()}`
-										: "$0",
-									"Balance",
-								]}
-							/>
+						<YAxis
+							tick={{ fontSize: 12, fill: "#94a3b8" }}
+							axisLine={false}
+							tickLine={false}
+							domain={[0, 'auto']}
+							allowDecimals={true}
+							tickCount={5}
+							tickFormatter={(v: number) =>
+								Number.isFinite(v) && v > 0
+									? `$${(v / 1000).toFixed(2)}k`
+									: ""
+							}
+						/>
+						<Tooltip
+							contentStyle={{
+								backgroundColor: "white",
+								border: "1px solid #e2e8f0",
+								borderRadius: "8px",
+								boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+							}}
+							formatter={(value: number) => [
+								Number.isFinite(value) ? `$${value.toLocaleString()}` : "$0",
+								"Balance",
+							]}
+						/>
 						{initialBalance > 0 && (
 							<ReferenceLine
 								y={initialBalance}
