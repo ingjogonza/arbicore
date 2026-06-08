@@ -15,6 +15,8 @@ import { getTlsOptions } from "./plugins/mtls";
 import { configureLogger } from "./plugins/logger";
 import { setupErrorHandler } from "./utils/errors";
 import { registerSwagger } from "./plugins/swagger";
+import path from "path";
+import fastifyStatic from "@fastify/static";
 import { healthRoutes } from "./routes/health";
 import { keysRoutes } from "./routes/keys";
 import { legalDocsRoutes } from "./routes/legalDocs";
@@ -44,6 +46,26 @@ async function buildPublicServer() {
 	await registerAuth(app);
 	await registerRateLimit(app);
 	setupErrorHandler(app);
+
+	// Serve built frontend in production / test environments
+	if (process.env.SERVE_FRONTEND === "true") {
+		const frontendDist = path.resolve(__dirname, "..", "..", "dist");
+		app.log.info(`[static] Serving frontend from ${frontendDist}`);
+
+		await app.register(fastifyStatic, {
+			root: frontendDist,
+			prefix: "/",
+			wildcard: false,
+		});
+
+		// SPA fallback: any non-API route serves index.html
+		app.setNotFoundHandler((_request, reply) => {
+			if (_request.url.startsWith("/api/")) {
+				return reply.code(404).send({ error: "Not found" });
+			}
+			return reply.sendFile("index.html");
+		});
+	}
 
 	await app.register(healthRoutes);
 	await app.register(keysRoutes);
