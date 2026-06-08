@@ -32,6 +32,7 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
 									balances: { type: ["array", "null"] },
 									trades: { type: ["array", "null"] },
 									equityHistory: { type: ["array", "null"] },
+									initialBalance: { type: ["string", "null"] },
 									botStatus: {
 										type: "object",
 										additionalProperties: true,

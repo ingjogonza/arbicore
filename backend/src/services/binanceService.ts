@@ -114,3 +114,24 @@ export async function getAccountSnapshot(
 		secretKey,
 	);
 }
+
+import type { BinanceDeposit } from "../types/binance";
+
+/**
+ * GET /sapi/v1/capital/deposit/hisrec — returns deposit history.
+ * When no coin filter is provided, returns deposits for all coins.
+ */
+export async function getDepositHistory(
+	apiKey: string,
+	secretKey: string,
+	coin?: string,
+): Promise<BinanceDeposit[]> {
+	const query: Record<string, string | number> = { status: 1 };
+	if (coin) query.coin = coin;
+	return binanceGet<BinanceDeposit[]>(
+		"/sapi/v1/capital/deposit/hisrec",
+		query,
+		apiKey,
+		secretKey,
+	);
+}

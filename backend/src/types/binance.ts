@@ -61,6 +61,19 @@ export interface BinanceSnapshotResponse {
 	snapshotVos: BinanceSnapshotDataPoint[];
 }
 
+/** Deposit history entry from GET /sapi/v1/capital/deposit/hisrec */
+export interface BinanceDeposit {
+	amount: string;
+	coin: string;
+	network: string;
+	status: number; // 0=pending, 1=success, 6=credited
+	address: string;
+	addressTag: string;
+	txId: string;
+	insertTime: number;
+	confirmTimes: string;
+}
+
 // ---- Service-level mapped types (returned by dashboardService) ----
 
 export interface DashboardBalance {
@@ -92,3 +105,9 @@ export interface DashboardBotStatus {
 	runningSince: string | null; // ISO date string
 	strategy: string;
 }
+
+/**
+ * First FDUSD deposit amount, representing initial investment.
+ * null if no FDUSD deposits found or deposit history unavailable.
+ */
+export type InitialBalance = string | null;

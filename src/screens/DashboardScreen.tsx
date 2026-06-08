@@ -30,13 +30,13 @@ export const DashboardScreen: React.FC = () => {
 		return parseFloat(fdusd.free);
 	}, [data?.balances]);
 
-	// Initial balance from equityHistory[0] or fallback to current
+	// Initial balance from first FDUSD deposit (via API) or fallback to current
 	const initialBalance = useMemo(() => {
-		if (data?.equityHistory && data.equityHistory.length > 0) {
-			return data.equityHistory[0].value;
+		if (data?.initialBalance) {
+			return parseFloat(data.initialBalance);
 		}
 		return currentBalance;
-	}, [data?.equityHistory, currentBalance]);
+	}, [data?.initialBalance, currentBalance]);
 
 	// Derived KPI values
 	const grossProfit = currentBalance - initialBalance;

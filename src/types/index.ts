@@ -160,6 +160,8 @@ export interface DashboardSummaryData {
 	trades: DashboardTrade[] | null;
 	equityHistory: DashboardEquityPoint[] | null;
 	botStatus: DashboardBotStatus;
+	/** First FDUSD deposit amount (string) or null if unavailable */
+	initialBalance: string | null;
 }
 
 export interface DashboardSummaryResponse {
