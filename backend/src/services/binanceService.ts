@@ -12,56 +12,98 @@ import type {
 
 const BINANCE_BASE = "https://api.binance.com";
 
+// Retry configuration for 429 (rate limit) errors
+const MAX_RETRIES = 2;
+const INITIAL_DELAY_MS = 2000;
+
+/**
+ * Checks if an error message indicates a 429 rate limit.
+ */
+function isRateLimitError(error: unknown): boolean {
+	return (
+		error instanceof Error &&
+		(error.message.includes("429") || error.message.includes("-1003"))
+	);
+}
+
+/**
+ * Sleep helper.
+ */
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Generic HTTPS GET with Binance auth headers.
- * Returns parsed JSON on 2xx, rejects with Error otherwise.
+ * Retries with exponential backoff on 429 rate limit errors.
  */
-function binanceGet<T>(
+async function binanceGet<T>(
 	path: string,
 	query: Record<string, string | number>,
 	apiKey: string,
 	secretKey: string,
+	attempt: number = 1,
 ): Promise<T> {
-	return new Promise((resolve, reject) => {
-		const { url } = buildSignedUrl(BINANCE_BASE, path, query, secretKey);
-		const parsedUrl = new URL(url);
+	try {
+		return await new Promise<T>((resolve, reject) => {
+			const { url } = buildSignedUrl(BINANCE_BASE, path, query, secretKey);
+			const parsedUrl = new URL(url);
 
-		const req = https.get(
-			{
-				hostname: parsedUrl.hostname,
-				path: parsedUrl.pathname + parsedUrl.search,
-				headers: {
-					"X-MBX-APIKEY": apiKey,
+			const req = https.get(
+				{
+					hostname: parsedUrl.hostname,
+					path: parsedUrl.pathname + parsedUrl.search,
+					headers: {
+						"X-MBX-APIKEY": apiKey,
+					},
+					timeout: 15000,
 				},
-				timeout: 15000,
-			},
-			(res) => {
-				let data = "";
-				res.on("data", (chunk) => (data += chunk));
-				res.on("end", () => {
-					if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-						try {
-							resolve(JSON.parse(data) as T);
-						} catch {
+				(res) => {
+					let data = "";
+					res.on("data", (chunk) => (data += chunk));
+					res.on("end", () => {
+						if (
+							res.statusCode &&
+							res.statusCode >= 200 &&
+							res.statusCode < 300
+						) {
+							try {
+								resolve(JSON.parse(data) as T);
+							} catch {
+								reject(
+									new Error(
+										`Invalid JSON from Binance: ${data.slice(0, 200)}`,
+									),
+								);
+							}
+						} else {
 							reject(
-								new Error(`Invalid JSON from Binance: ${data.slice(0, 200)}`),
+								new Error(
+									`Binance API ${res.statusCode}: ${data.slice(0, 200)}`,
+								),
 							);
 						}
-					} else {
-						reject(
-							new Error(`Binance API ${res.statusCode}: ${data.slice(0, 200)}`),
-						);
-					}
-				});
-			},
-		);
+					});
+				},
+			);
 
-		req.on("error", reject);
-		req.on("timeout", () => {
-			req.destroy();
-			reject(new Error("Binance API timeout"));
+			req.on("error", reject);
+			req.on("timeout", () => {
+				req.destroy();
+				reject(new Error("Binance API timeout"));
+			});
 		});
-	});
+	} catch (err) {
+		if (isRateLimitError(err) && attempt <= MAX_RETRIES) {
+			const delay = INITIAL_DELAY_MS * 2 ** (attempt - 1);
+			console.warn(
+				`[Binance] Rate limited on ${path}, retry ${attempt}/${MAX_RETRIES} after ${delay}ms`,
+			);
+			await sleep(delay);
+			return binanceGet(path, query, apiKey, secretKey, attempt + 1);
+		}
+		throw err;
+	}
 }
 
 /**

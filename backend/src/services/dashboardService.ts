@@ -9,6 +9,7 @@ import {
 	getAccountSnapshot,
 	getDepositHistory,
 } from "./binanceService";
+import { cacheGet, cacheSet } from "./cacheService";
 import { NotFoundError } from "../utils/errors";
 import type {
 	DashboardBalance,
@@ -150,11 +151,17 @@ export function computeInitialBalance(
 
 /**
  * Main orchestrator — called by routes/dashboard.ts
+ * Results are cached in MongoDB for 30s to avoid Binance rate limits.
  */
 export async function getDashboardSummary(
 	userId: string,
 ): Promise<DashboardSummaryResult> {
 	const errors: DashboardError[] = [];
+	const CACHE_TTL = 30; // seconds
+
+	// Check cache first
+	const cached = await cacheGet<DashboardSummaryResult>(`dashboard:${userId}`);
+	if (cached) return cached;
 
 	// Step 1: Get user's API keys
 	let apiKey: string;
@@ -165,7 +172,7 @@ export async function getDashboardSummary(
 		secretKey = keys.secretKey;
 	} catch (err) {
 		if (err instanceof NotFoundError) {
-			return {
+			const result: DashboardSummaryResult = {
 				data: {
 					balances: null,
 					trades: null,
@@ -181,6 +188,7 @@ export async function getDashboardSummary(
 					},
 				],
 			};
+			return result;
 		}
 		throw err; // Unexpected error — let error handler catch
 	}
@@ -250,8 +258,13 @@ export async function getDashboardSummary(
 	// Step 7: Compute bot status
 	const botStatus = buildBotStatus(true); // Keys exist → bot is considered active
 
-	return {
+	const result: DashboardSummaryResult = {
 		data: { balances, trades, equityHistory, botStatus, initialBalance },
 		errors,
 	};
+
+	// Cache result (fire-and-forget, ignore errors)
+	cacheSet(`dashboard:${userId}`, result, CACHE_TTL).catch(() => {});
+
+	return result;
 }
