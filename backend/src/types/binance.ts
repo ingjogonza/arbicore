@@ -48,7 +48,7 @@ export interface BinanceSnapshotVos {
 }
 
 export interface BinanceSnapshotDataPoint {
-	time: number;
+	updateTime: number;
 	data: {
 		balances: BinanceSnapshotVos[];
 		totalAssetOfBtc: string;

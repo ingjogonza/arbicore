@@ -91,12 +91,14 @@ export const EquityChart: React.FC<EquityChartProps> = ({ data }) => {
 							tick={{ fontSize: 12, fill: "#94a3b8" }}
 							axisLine={false}
 							tickLine={false}
-							domain={[0, 'auto']}
+							domain={[0, "auto"]}
 							allowDecimals={true}
 							tickCount={5}
 							tickFormatter={(v: number) =>
 								Number.isFinite(v) && v > 0
-									? `$${(v / 1000).toFixed(2)}k`
+									? v < 1
+										? `${v.toFixed(6)} BTC`
+										: `${v.toFixed(4)} BTC`
 									: ""
 							}
 						/>
@@ -108,8 +110,10 @@ export const EquityChart: React.FC<EquityChartProps> = ({ data }) => {
 								boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
 							}}
 							formatter={(value: number) => [
-								Number.isFinite(value) ? `$${value.toLocaleString()}` : "$0",
-								"Balance",
+								Number.isFinite(value)
+									? `${value.toFixed(8)} BTC`
+									: "0 BTC",
+								"Portfolio Value",
 							]}
 						/>
 						{initialBalance > 0 && (

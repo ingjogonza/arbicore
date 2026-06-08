@@ -157,7 +157,7 @@ describe("dashboardService — pure functions", () => {
 				msg: "",
 				snapshotVos: [
 					{
-						time: 1700000000000, // Dec 14, 2023 (approx)
+						updateTime: 1700000000000, // Dec 14, 2023 (approx)
 						data: {
 							balances: [
 								{
@@ -171,7 +171,7 @@ describe("dashboardService — pure functions", () => {
 						},
 					},
 					{
-						time: 1698000000000, // Oct 22, 2023 (approx) — older
+						updateTime: 1698000000000, // Oct 22, 2023 (approx) — older
 						data: {
 							balances: [
 								{
@@ -207,16 +207,16 @@ describe("dashboardService — pure functions", () => {
 			const snapshot: BinanceSnapshotResponse = {
 				code: 200,
 				msg: "",
-				snapshotVos: [
+					snapshotVos: [
 					{
-						time: 1700000000000,
+						updateTime: 1700000000000,
 						data: {
 							balances: [],
 							totalAssetOfBtc: "1.0",
 						},
 					},
 					{
-						time: 1690000000000,
+						updateTime: 1690000000000,
 						data: {
 							balances: [],
 							totalAssetOfBtc: "", // empty string should be filtered

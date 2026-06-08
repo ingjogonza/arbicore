@@ -98,11 +98,11 @@ export function mapEquityHistory(
 	const validSnapshots = snapshot.snapshotVos.filter(
 		(s) => s.data.totalAssetOfBtc,
 	);
-	validSnapshots.sort((a, b) => a.time - b.time);
+	validSnapshots.sort((a, b) => a.updateTime - b.updateTime);
 
 	return validSnapshots
 		.map((s) => {
-			const d = new Date(s.time);
+			const d = new Date(s.updateTime);
 			return {
 				date: `${months[d.getMonth()]} ${d.getDate()}`,
 				value: parseFloat(s.data.totalAssetOfBtc),
