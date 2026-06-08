@@ -1,0 +1,17 @@
+# ============================================
+# CryptoInvestor Frontend — PRODUCTION Environment
+# ============================================
+# Instructions:
+# 1. Fill in your production Supabase project values
+# 2. Rename to:  .env.production  (root level)
+# 3. Vite loads this automatically when building: npm run build
+# ============================================
+
+# ── Supabase Auth ──
+VITE_SUPABASE_URL=https://<tu-proyecto-produccion>.supabase.co
+VITE_SUPABASE_ANON_KEY=<tu-anon-public-key-produccion>
+
+# ── Backend API base URL ──
+# Leave empty when backend serves frontend (SERVE_FRONTEND=true)
+# Otherwise: https://api.<tu-dominio>.duckdns.org
+VITE_API_BASE_URL=

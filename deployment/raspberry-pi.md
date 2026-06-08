@@ -1,14 +1,46 @@
-# Raspberry Pi 5 — Test Environment Setup
+# CryptoInvestor — Production Environment Setup
 
-Guía para desplegar el stack completo (API + Frontend) en una **Raspberry Pi 5 (8GB)** con ARM64.
+Guía para desplegar el stack completo (API + Frontend) en una **Raspberry Pi 5 (8GB)**
+usando servicios cloud de producción.
 
 ## Prerequisitos
 
 - Raspberry Pi 5 con **Raspberry Pi OS** (64-bit, Debian Bookworm)
 - 8GB RAM (ideal) o 4GB
-- **MongoDB Atlas** cuenta gratuita (o URI de MongoDB)
-- **Supabase** proyecto ya funcionando
+- **MongoDB Atlas** cluster de producción (dedicado, no el free tier de desarrollo)
+- **Supabase** proyecto de producción (dedicado, no el usado en CI)
 - **Binance API keys** (para probar el dashboard)
+
+---
+
+## Producción: Servidores Cloud
+
+| Servicio | Tipo | Uso |
+|----------|------|-----|
+| **Supabase** | Proyecto de producción | Auth, usuarios reales |
+| **MongoDB Atlas** | Cluster dedicado (M10+) | Datos de producción |
+
+> ⚠️ **Importante**: Usá proyectos SEPARADOS de los que usa CI.
+> CI usa un proyecto Supabase gratuito + MongoDB local (service container).
+> Producción usa proyectos dedicados con datos reales.
+
+### Configurar Supabase (producción)
+
+1. Crear proyecto en [supabase.com](https://supabase.com) → New project
+2. Anotar:
+   - **Project URL** → Settings → API → Project URL
+   - **anon public key** → Settings → API → anon public
+   - **service_role key** → Settings → API → service_role (NUNCA compartir)
+
+### Configurar MongoDB Atlas (producción)
+
+1. Crear cluster en [cloud.mongodb.com](https://cloud.mongodb.com)
+2. Database Access → Add user con contraseña segura
+3. Network Access → Add IP (0.0.0.0/0 para la Raspberry Pi, o IP fija)
+4. Clusters → Connect → Drivers → Node.js → copiar URI
+5. Reemplazar `<password>` y `<dbname>` en la URI
+
+---
 
 ## 1. Instalar Node.js 22
 
@@ -32,36 +64,44 @@ cd arbicore
 
 ## 3. Configurar variables de entorno
 
+Usá las plantillas de producción (contienen TODAS las vars necesarias):
+
 ```bash
-cp .env.example .env
-cp backend/.env.example backend/.env
+# Backend
+cp backend/setup/production-env-template.txt backend/.env
+
+# Frontend
+cp frontend-env-production-template.txt .env.production
 ```
 
-Editar `backend/.env`:
+Editar `backend/.env` con tus valores de producción:
 
 ```env
 PORT=3000
 ROBOT_PORT=3001
-MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/cryptoinvestor
+MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/cryptoinvestor?retryWrites=true&w=majority
 SUPABASE_URL=https://<project>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<service_role_key>
 MASTER_KEY=<generated_key>
 NODE_ENV=production
 SERVE_FRONTEND=true
 LOG_LEVEL=info
+CORS_ORIGIN=https://<tu-dominio>.duckdns.org
 ```
 
 > `MASTER_KEY` generarlo con: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`
 
-Editar `.env` (frontend):
+Editar `.env.production` (frontend):
 
 ```env
-VITE_SUPABASE_URL=https://<project>.supabase.co
-VITE_SUPABASE_ANON_KEY=<anon_key>
-VITE_API_BASE_URL=http://<PI_IP>:3000
+VITE_SUPABASE_URL=https://<proyecto-produccion>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon_key_produccion>
+VITE_API_BASE_URL=
 ```
 
-> Reemplazar `<PI_IP>` con la IP local de la Raspberry Pi.
+> `VITE_API_BASE_URL` vacío = el frontend usa rutas relativas al backend
+> (porque `SERVE_FRONTEND=true`). Si el frontend está separado,
+> poner la URL completa: `https://api.<dominio>.duckdns.org`
 
 ## 4. Instalar dependencias y construir
 
@@ -135,21 +175,27 @@ cd ~/arbicore && npm install && npm run build
 pm2 restart arbicore-api
 ```
 
-## Arquitectura
+## Arquitectura (Producción)
 
 ```
-Raspberry Pi 5 (:3000)
-  ├── GET /api/*          → Fastify backend
-  ├── GET / (static)      → dist/ (React SPA)
-  ├── SPA fallback        → index.html (para rutas React)
-  └── GET /api/keys/:userId → Robot endpoint (:3001)
+Raspberry Pi 5 (:3000)              Servicios Cloud
+├── GET /api/* → Fastify backend    MongoDB Atlas (producción)
+├── GET / (static) → dist/ (SPA)      └── cryptoinvestor DB
+├── SPA fallback → index.html           ├── apiKeys
+└── GET /api/keys/:userId → Robot       ├── legalDocuments
+                                         ├── twoFactorSecrets
+Raspberry Pi 5 (:3001)                   ├── userProfiles
+└── Robot API (mTLS)                     └── cache (dashboard)
 
-MongoDB Atlas (cloud)
-  └── apiKeys, legalDocuments, twoFactorSecrets, userProfiles
-
-Supabase (cloud)
-  └── Auth, profiles table
+                                    Supabase (producción)
+                                      └── Auth
+                                           ├── users
+                                           ├── email verification
+                                           └── password reset
 ```
+
+> La **cache** del dashboard (30s TTL) se guarda en MongoDB Atlas
+> en la colección `cache` con índice TTL automático.
 
 ## Troubleshooting
 
