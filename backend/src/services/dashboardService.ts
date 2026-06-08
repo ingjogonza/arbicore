@@ -100,13 +100,15 @@ export function mapEquityHistory(
 	);
 	validSnapshots.sort((a, b) => a.time - b.time);
 
-	return validSnapshots.map((s) => {
-		const d = new Date(s.time);
-		return {
-			date: `${months[d.getMonth()]} ${d.getDate()}`,
-			value: parseFloat(s.data.totalAssetOfBtc),
-		};
-	});
+	return validSnapshots
+		.map((s) => {
+			const d = new Date(s.time);
+			return {
+				date: `${months[d.getMonth()]} ${d.getDate()}`,
+				value: parseFloat(s.data.totalAssetOfBtc),
+			};
+		})
+		.filter((p) => !Number.isNaN(p.value));
 }
 
 /**

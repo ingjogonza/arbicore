@@ -33,15 +33,18 @@ export const DashboardScreen: React.FC = () => {
 	// Initial balance from first FDUSD deposit (via API) or fallback to current
 	const initialBalance = useMemo(() => {
 		if (data?.initialBalance) {
-			return parseFloat(data.initialBalance);
+			const val = parseFloat(data.initialBalance);
+			return Number.isNaN(val) ? currentBalance : val;
 		}
 		return currentBalance;
 	}, [data?.initialBalance, currentBalance]);
 
-	// Derived KPI values
-	const grossProfit = currentBalance - initialBalance;
+	// Derived KPI values (guard against NaN)
+	const grossProfit = Number.isFinite(initialBalance)
+		? currentBalance - initialBalance
+		: 0;
 	const performance =
-		initialBalance > 0
+		initialBalance > 0 && Number.isFinite(initialBalance)
 			? ((grossProfit / initialBalance) * 100).toFixed(2)
 			: "0.00";
 	const pendingFee = Math.max(0, grossProfit * 0.07);
