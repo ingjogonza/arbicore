@@ -7,6 +7,7 @@ import { ThemeProvider } from "./hooks/useTheme";
 import { TradingProvider } from "./hooks/useTrading";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { LoginScreen } from "./screens/LoginScreen";
 import { RegisterScreen } from "./screens/RegisterScreen";
@@ -26,8 +27,14 @@ function App() {
 		<ThemeProvider>
 			<AuthProvider>
 				<TradingProvider>
-					<BrowserRouter>
-						<Routes>
+					<BrowserRouter
+						future={{
+							v7_startTransition: true,
+							v7_relativeSplatPath: true,
+						}}
+					>
+						<ErrorBoundary>
+							<Routes>
 							<Route path="/" element={<OnboardingScreen />} />
 							<Route path="/login" element={<LoginScreen />} />
 							<Route path="/register" element={<RegisterScreen />} />
@@ -47,6 +54,7 @@ function App() {
 								<Route path="/settings" element={<SettingsScreen />} />
 							</Route>
 						</Routes>
+						</ErrorBoundary>
 					</BrowserRouter>
 				</TradingProvider>
 			</AuthProvider>
