@@ -2,7 +2,7 @@
 // SCREEN 1: ONBOARDING
 // ============================================
 
-import { useNavigate } from "react-router-dom";
+import { useSafeNavigate } from "../hooks/useSafeNavigate";
 import {
 	Key,
 	Play,
@@ -17,7 +17,7 @@ import { Button } from "../components/ui/Button";
 import { Alert } from "../components/ui/Alert";
 
 export const OnboardingScreen: React.FC = () => {
-	const navigate = useNavigate();
+	const navigate = useSafeNavigate();
 
 	const steps = [
 		{

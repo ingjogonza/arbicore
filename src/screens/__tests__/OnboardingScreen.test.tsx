@@ -101,7 +101,7 @@ describe("OnboardingScreen", () => {
 		fireEvent.click(
 			screen.getByRole("button", { name: /connect binance account/i }),
 		);
-		expect(mockNavigate).toHaveBeenCalledWith("/connect");
+		expect(mockNavigate).toHaveBeenCalledWith("/connect", { replace: true });
 	});
 
 	test("navigates to /login when Iniciar sesión is clicked", () => {
@@ -111,7 +111,7 @@ describe("OnboardingScreen", () => {
 			</BrowserRouter>,
 		);
 		fireEvent.click(screen.getByRole("button", { name: /iniciar sesión/i }));
-		expect(mockNavigate).toHaveBeenCalledWith("/login");
+		expect(mockNavigate).toHaveBeenCalledWith("/login", { replace: true });
 	});
 
 	test("navigates to /register when Crear cuenta is clicked", () => {
@@ -121,7 +121,7 @@ describe("OnboardingScreen", () => {
 			</BrowserRouter>,
 		);
 		fireEvent.click(screen.getByRole("button", { name: /crear cuenta/i }));
-		expect(mockNavigate).toHaveBeenCalledWith("/register");
+		expect(mockNavigate).toHaveBeenCalledWith("/register", { replace: true });
 	});
 
 	test("renders footer disclaimer", () => {

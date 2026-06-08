@@ -110,9 +110,7 @@ export const EquityChart: React.FC<EquityChartProps> = ({ data }) => {
 								boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
 							}}
 							formatter={(value: number) => [
-								Number.isFinite(value)
-									? `${value.toFixed(8)} BTC`
-									: "0 BTC",
+								Number.isFinite(value) ? `${value.toFixed(8)} BTC` : "0 BTC",
 								"Portfolio Value",
 							]}
 						/>

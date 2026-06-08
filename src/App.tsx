@@ -35,25 +35,28 @@ function App() {
 					>
 						<ErrorBoundary>
 							<Routes>
-							<Route path="/" element={<OnboardingScreen />} />
-							<Route path="/login" element={<LoginScreen />} />
-							<Route path="/register" element={<RegisterScreen />} />
-							<Route path="/verify-email" element={<VerifyEmailScreen />} />
-							<Route
-								path="/forgot-password"
-								element={<ForgotPasswordScreen />}
-							/>
-							<Route path="/auth/callback" element={<AuthCallbackScreen />} />
-							<Route path="/reset-password" element={<ResetPasswordScreen />} />
-							<Route path="/2fa-setup" element={<TwoFactorSetupScreen />} />
-							<Route path="/2fa-verify" element={<TwoFactorVerifyScreen />} />
-							<Route element={<ProtectedRoute />}>
-								<Route path="/connect" element={<ConnectScreen />} />
-								<Route path="/dashboard" element={<DashboardScreen />} />
-								<Route path="/withdrawals" element={<WithdrawalsScreen />} />
-								<Route path="/settings" element={<SettingsScreen />} />
-							</Route>
-						</Routes>
+								<Route path="/" element={<OnboardingScreen />} />
+								<Route path="/login" element={<LoginScreen />} />
+								<Route path="/register" element={<RegisterScreen />} />
+								<Route path="/verify-email" element={<VerifyEmailScreen />} />
+								<Route
+									path="/forgot-password"
+									element={<ForgotPasswordScreen />}
+								/>
+								<Route path="/auth/callback" element={<AuthCallbackScreen />} />
+								<Route
+									path="/reset-password"
+									element={<ResetPasswordScreen />}
+								/>
+								<Route path="/2fa-setup" element={<TwoFactorSetupScreen />} />
+								<Route path="/2fa-verify" element={<TwoFactorVerifyScreen />} />
+								<Route element={<ProtectedRoute />}>
+									<Route path="/connect" element={<ConnectScreen />} />
+									<Route path="/dashboard" element={<DashboardScreen />} />
+									<Route path="/withdrawals" element={<WithdrawalsScreen />} />
+									<Route path="/settings" element={<SettingsScreen />} />
+								</Route>
+							</Routes>
 						</ErrorBoundary>
 					</BrowserRouter>
 				</TradingProvider>

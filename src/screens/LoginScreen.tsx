@@ -2,16 +2,16 @@
 // SCREEN: LOGIN
 // ============================================
 
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Mail, Lock, LogIn, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Alert } from "../components/ui/Alert";
 import { useAuth } from "../contexts/AuthContext";
-import { useEffect } from "react";
+import { useSafeNavigate } from "../hooks/useSafeNavigate";
 
 export const LoginScreen: React.FC = () => {
-	const navigate = useNavigate();
+	const navigate = useSafeNavigate();
 	const { login, resendVerification, state, clearError } = useAuth();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
