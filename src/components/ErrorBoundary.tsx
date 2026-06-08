@@ -22,7 +22,7 @@ export class ErrorBoundary extends React.Component<
 		return { hasError: true, error };
 	}
 
-	componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+	componentDidCatch(error: Error, _errorInfo: React.ErrorInfo) {
 		// Log error but keep the app running
 		console.warn("[ErrorBoundary] Caught render error:", error.message);
 	}
