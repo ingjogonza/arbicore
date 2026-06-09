@@ -461,7 +461,9 @@ describe("ConnectScreen", () => {
 			// Advance past the 1.5s timeout
 			jest.advanceTimersByTime(1500);
 
-			expect(mockNavigate).toHaveBeenCalledWith("/dashboard", { replace: true });
+			expect(mockNavigate).toHaveBeenCalledWith("/dashboard", {
+				replace: true,
+			});
 
 			jest.useRealTimers();
 		});
@@ -693,7 +695,9 @@ describe("ConnectScreen", () => {
 			});
 
 			fireEvent.click(screen.getByRole("button", { name: /ir al dashboard/i }));
-			expect(mockNavigate).toHaveBeenCalledWith("/dashboard", { replace: true });
+			expect(mockNavigate).toHaveBeenCalledWith("/dashboard", {
+				replace: true,
+			});
 		});
 	});
 

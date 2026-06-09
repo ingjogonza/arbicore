@@ -71,9 +71,7 @@ async function binanceGet<T>(
 								resolve(JSON.parse(data) as T);
 							} catch {
 								reject(
-									new Error(
-										`Invalid JSON from Binance: ${data.slice(0, 200)}`,
-									),
+									new Error(`Invalid JSON from Binance: ${data.slice(0, 200)}`),
 								);
 							}
 						} else {

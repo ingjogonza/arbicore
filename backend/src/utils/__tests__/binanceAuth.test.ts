@@ -16,9 +16,7 @@ describe("binanceAuth", () => {
 			const secret = "testsecret";
 			const result = buildSignature("GET", "/api/v3/account", "", secret);
 
-			const expected = createHmac("sha256", secret)
-				.update("")
-				.digest("hex");
+			const expected = createHmac("sha256", secret).update("").digest("hex");
 
 			assert.strictEqual(result, expected);
 		});
@@ -29,16 +27,9 @@ describe("binanceAuth", () => {
 
 			// Binance expects signature over the query string ONLY:
 			//   echo -n "symbol=BTCFDUSD&limit=20&timestamp=1234567890123" | openssl dgst -sha256 -hmac "testsecret"
-			const expected = createHmac("sha256", secret)
-				.update(query)
-				.digest("hex");
+			const expected = createHmac("sha256", secret).update(query).digest("hex");
 
-			const result = buildSignature(
-				"GET",
-				"/api/v3/myTrades",
-				query,
-				secret,
-			);
+			const result = buildSignature("GET", "/api/v3/myTrades", query, secret);
 
 			assert.strictEqual(
 				result,

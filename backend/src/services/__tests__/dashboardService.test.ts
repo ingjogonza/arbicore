@@ -207,7 +207,7 @@ describe("dashboardService — pure functions", () => {
 			const snapshot: BinanceSnapshotResponse = {
 				code: 200,
 				msg: "",
-					snapshotVos: [
+				snapshotVos: [
 					{
 						updateTime: 1700000000000,
 						data: {
