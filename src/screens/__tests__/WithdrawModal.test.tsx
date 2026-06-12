@@ -4,25 +4,45 @@
 
 import { render, screen, fireEvent } from "@testing-library/react";
 import { WithdrawModal } from "../WithdrawModal";
+import type { InitialOperation } from "../../types";
 
-jest.mock("../../hooks/useTrading", () => ({
-	useTrading: jest.fn(),
-}));
-
-import { useTrading } from "../../hooks/useTrading";
-
-const mockWithdraw = jest.fn();
 const onClose = jest.fn();
+const onWithdraw = jest.fn();
 
-const defaultAccount = {
-	initialBalance: 10000,
-	currentBalance: 12500,
-	apiConnected: true,
-	apiKey: "••••••••••••",
-	botStatus: "active" as const,
-	botRunningSince: "2026-01-15",
-	strategy: "Conservative",
+const depositOperation: InitialOperation = {
+	type: "deposit",
+	coin: "USDT",
+	amount: 10000,
+	time: 1700000000000,
 };
+
+const transferOperation: InitialOperation = {
+	type: "transfer",
+	coin: "USDT",
+	amount: 5000,
+	time: 1700000000000,
+};
+
+const renderModal = (
+	overrides: {
+		isOpen?: boolean;
+		initialOperation?: InitialOperation | null;
+		currentBalance?: number;
+	} = {},
+) =>
+	render(
+		<WithdrawModal
+			isOpen={overrides.isOpen ?? true}
+			onClose={onClose}
+			initialOperation={
+				overrides.initialOperation === undefined
+					? depositOperation
+					: overrides.initialOperation
+			}
+			currentBalance={overrides.currentBalance ?? 12500}
+			onWithdraw={onWithdraw}
+		/>,
+	);
 
 const fillFormAndSubmit = () => {
 	fireEvent.change(
@@ -35,43 +55,60 @@ const fillFormAndSubmit = () => {
 	fireEvent.click(screen.getByRole("button", { name: /confirm withdrawal/i }));
 };
 
-const renderModal = (isOpen = true) =>
-	render(<WithdrawModal isOpen={isOpen} onClose={onClose} />);
-
 describe("WithdrawModal", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
-		(useTrading as jest.Mock).mockReturnValue({
-			account: defaultAccount,
-			withdraw: mockWithdraw,
-		});
 	});
 
 	test("does not render when isOpen is false", () => {
-		renderModal(false);
+		renderModal({ isOpen: false });
 		expect(
 			screen.queryByRole("heading", { name: /withdraw profits/i }),
 		).not.toBeInTheDocument();
 	});
 
-	test("renders profit summary when open", () => {
-		renderModal();
-		expect(
-			screen.getByRole("heading", { name: /withdraw profits/i }),
-		).toBeInTheDocument();
-		expect(screen.getByText(/Initial Balance/i)).toBeInTheDocument();
-		expect(screen.getByText(/10,000.00 USDT/)).toBeInTheDocument();
-		expect(screen.getByText(/12,500.00 USDT/)).toBeInTheDocument();
+	// ── Spec: WithdrawModal shows real operation data (deposit) ──
+	test("displays deposit operation label and amount from props", () => {
+		renderModal({ initialOperation: depositOperation, currentBalance: 12500 });
+
+		expect(screen.getByText("Depósito Inicial")).toBeInTheDocument();
+		expect(screen.getByText("10000 USDT")).toBeInTheDocument();
 	});
 
-	test("shows correct gross profit, fee, and net amount", () => {
-		renderModal();
-		// Gross profit = 12500 - 10000 = 2500
+	// ── Triangulation: transfer operation produces a different label ──
+	test("displays transfer operation label and amount from props", () => {
+		renderModal({ initialOperation: transferOperation, currentBalance: 8000 });
+
+		expect(screen.getByText("Transferencia Inicial")).toBeInTheDocument();
+		expect(screen.getByText("5000 USDT")).toBeInTheDocument();
+	});
+
+	// ── Spec: WithdrawModal with no operation ──
+	test("shows fallback label when initialOperation is null", () => {
+		renderModal({ initialOperation: null, currentBalance: 12500 });
+
+		expect(screen.getByText("Sin operación inicial")).toBeInTheDocument();
+	});
+
+	test("shows correct gross profit, fee, and net amount based on real props", () => {
+		renderModal({ initialOperation: depositOperation, currentBalance: 12500 });
+		// Gross = 12500 - 10000 = 2500
 		expect(screen.getByText(/\+2,500\.00 USDT/)).toBeInTheDocument();
 		// Fee = 2500 * 0.07 = 175
 		expect(screen.getByText(/-175\.00 USDT/)).toBeInTheDocument();
 		// Net = 2500 * 0.93 = 2325
 		expect(screen.getByText(/2,325\.00 USDT/)).toBeInTheDocument();
+	});
+
+	// ── Triangulation: different prop values produce different math ──
+	test("recalculates breakdown for a different currentBalance", () => {
+		renderModal({ initialOperation: depositOperation, currentBalance: 15000 });
+		// Gross = 15000 - 10000 = 5000
+		expect(screen.getByText(/\+5,000\.00 USDT/)).toBeInTheDocument();
+		// Fee = 5000 * 0.07 = 350
+		expect(screen.getByText(/-350\.00 USDT/)).toBeInTheDocument();
+		// Net = 5000 * 0.93 = 4650
+		expect(screen.getByText(/4,650\.00 USDT/)).toBeInTheDocument();
 	});
 
 	test("renders address input and network select", () => {
@@ -108,17 +145,14 @@ describe("WithdrawModal", () => {
 		expect(confirmBtn).not.toBeDisabled();
 	});
 
-	test("calls withdraw and shows submitted state on confirm", () => {
+	test("calls onWithdraw with gross profit and address on confirm", () => {
 		jest.useFakeTimers();
-		renderModal();
+		renderModal({ initialOperation: depositOperation, currentBalance: 12500 });
 
 		fillFormAndSubmit();
 
-		expect(mockWithdraw).toHaveBeenCalledWith(2500, "0x1234567890abcdef");
+		expect(onWithdraw).toHaveBeenCalledWith(2500, "0x1234567890abcdef");
 		expect(screen.getByText(/Withdrawal Initiated/i)).toBeInTheDocument();
-		expect(
-			screen.getByText(/your withdrawal is being processed/i),
-		).toBeInTheDocument();
 
 		jest.useRealTimers();
 	});
@@ -137,15 +171,15 @@ describe("WithdrawModal", () => {
 		jest.useRealTimers();
 	});
 
-	test("does not call withdraw when checkboxes unchecked", () => {
+	test("does not call onWithdraw when checkboxes unchecked", () => {
 		renderModal();
 		fireEvent.click(
 			screen.getByRole("button", { name: /confirm withdrawal/i }),
 		);
-		expect(mockWithdraw).not.toHaveBeenCalled();
+		expect(onWithdraw).not.toHaveBeenCalled();
 	});
 
-	test("does not call withdraw when address is empty", () => {
+	test("does not call onWithdraw when address is empty", () => {
 		renderModal();
 		const checkboxes = screen.getAllByRole("checkbox");
 		fireEvent.click(checkboxes[0]);
@@ -153,7 +187,7 @@ describe("WithdrawModal", () => {
 		fireEvent.click(
 			screen.getByRole("button", { name: /confirm withdrawal/i }),
 		);
-		expect(mockWithdraw).not.toHaveBeenCalled();
+		expect(onWithdraw).not.toHaveBeenCalled();
 	});
 
 	test("shows visual split with 93% and 7%", () => {

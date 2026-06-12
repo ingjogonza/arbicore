@@ -49,6 +49,12 @@ const defaultDashboardData = {
 		{ asset: "FDUSD", free: "14832.50", locked: "0.00" },
 		{ asset: "BTC", free: "0.50000000", locked: "0.00000000" },
 	],
+	initialBalance: {
+		type: "deposit" as const,
+		coin: "USDT",
+		amount: 12500,
+		time: 1700000000000,
+	},
 	trades: [
 		{
 			id: 1,
@@ -123,7 +129,7 @@ describe("DashboardScreen (rewritten)", () => {
 		test("renders KPI cards via sub-components", () => {
 			renderDashboard();
 
-			expect(screen.getByText(/Initial Balance/i)).toBeInTheDocument();
+			expect(screen.getByText(/Depósito Inicial/i)).toBeInTheDocument();
 			expect(screen.getByText(/Current Balance/i)).toBeInTheDocument();
 			expect(screen.getByText(/Net Profit/i)).toBeInTheDocument();
 			expect(screen.getByText(/Performance/i)).toBeInTheDocument();
@@ -257,7 +263,7 @@ describe("DashboardScreen (rewritten)", () => {
 			renderDashboard();
 
 			// KPIs should still render
-			expect(screen.getByText(/Initial Balance/i)).toBeInTheDocument();
+			expect(screen.getByText(/Depósito Inicial/i)).toBeInTheDocument();
 			// Bot status should still render
 			expect(screen.getByText(/Bot Status/i)).toBeInTheDocument();
 		});

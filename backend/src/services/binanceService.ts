@@ -155,7 +155,7 @@ export async function getAccountSnapshot(
 	);
 }
 
-import type { BinanceDeposit } from "../types/binance";
+import type { BinanceDeposit, BinanceTransfer } from "../types/binance";
 
 /**
  * GET /sapi/v1/capital/deposit/hisrec — returns deposit history.
@@ -174,4 +174,32 @@ export async function getDepositHistory(
 		apiKey,
 		secretKey,
 	);
+}
+
+/** Wrapper shape returned by /sapi/v1/asset/transfer. */
+interface BinanceTransferResponse {
+	total: number;
+	rows: BinanceTransfer[];
+}
+
+/**
+ * GET /sapi/v1/asset/transfer — returns universal transfer history.
+ *
+ * Binance requires the `type` parameter for this endpoint. We query the most
+ * common transfer flow (`MAIN_UMFUTURE`); callers that need other types can
+ * pass a different value. The API key needs the "Universal Transfer" permission;
+ * if missing, the endpoint returns an error and callers should degrade gracefully.
+ */
+export async function getTransferHistory(
+	apiKey: string,
+	secretKey: string,
+	type: string = "MAIN_UMFUTURE",
+): Promise<BinanceTransfer[]> {
+	const response = await binanceGet<BinanceTransferResponse>(
+		"/sapi/v1/asset/transfer",
+		{ type },
+		apiKey,
+		secretKey,
+	);
+	return response?.rows ?? [];
 }

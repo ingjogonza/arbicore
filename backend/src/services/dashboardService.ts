@@ -8,6 +8,7 @@ import {
 	getMyTrades,
 	getAccountSnapshot,
 	getDepositHistory,
+	getTransferHistory,
 } from "./binanceService";
 import { cacheGet, cacheSet } from "./cacheService";
 import { NotFoundError } from "../utils/errors";
@@ -16,15 +17,16 @@ import type {
 	DashboardTrade,
 	DashboardEquityPoint,
 	DashboardBotStatus,
-	InitialBalance,
+	InitialOperation,
 	BinanceAccountResponse,
 	BinanceTradeResponse,
 	BinanceSnapshotResponse,
 	BinanceDeposit,
+	BinanceTransfer,
 } from "../types/binance";
 
 export interface DashboardError {
-	source: "balances" | "trades" | "deposits" | "equity";
+	source: "balances" | "trades" | "deposits" | "transfers" | "equity";
 	message: string;
 	code?: string;
 }
@@ -34,7 +36,8 @@ export interface DashboardSummaryData {
 	trades: DashboardTrade[] | null;
 	equityHistory: DashboardEquityPoint[] | null;
 	botStatus: DashboardBotStatus;
-	initialBalance: InitialBalance; // from first FDUSD deposit
+	/** Earliest funding operation (deposit or transfer); null when none found. */
+	initialBalance: InitialOperation | null;
 }
 
 export interface DashboardSummaryResult {
@@ -124,27 +127,60 @@ export function buildBotStatus(hasKeys: boolean): DashboardBotStatus {
 	};
 }
 
-// ---- Pure functions for deposits ----
+// ---- Pure functions for deposits & transfers ----
 
 /**
- * Computes initial balance from deposit history.
- * Uses the first completed FDUSD deposit as the initial investment.
- * Falls back to the first deposit of any coin if no FDUSD found.
+ * Internal unified shape for sorting deposits and transfers together.
+ */
+interface CandidateOperation {
+	type: "deposit" | "transfer";
+	coin: string;
+	amount: number;
+	time: number;
+}
+
+/**
+ * Computes the earliest account funding operation across deposits and transfers.
+ *
+ * Per the `initial-operation-detection` spec:
+ * - Merges deposits and transfers, normalizes to a unified shape, and returns
+ *   the single earliest one by timestamp.
+ * - If `transfers` is undefined (transfer API unavailable) or empty, falls back
+ *   to deposits only — graceful degradation, no error propagation.
+ * - Returns `null` when both sources are empty.
  */
 export function computeInitialBalance(
 	deposits: BinanceDeposit[],
-): InitialBalance {
-	// Sort by time ascending
-	const sorted = [...deposits].sort((a, b) => a.insertTime - b.insertTime);
+	transfers?: BinanceTransfer[],
+): InitialOperation | null {
+	const candidates: CandidateOperation[] = [];
 
-	if (sorted.length === 0) return null;
+	for (const d of deposits) {
+		const amount = parseFloat(d.amount);
+		if (Number.isNaN(amount)) continue;
+		candidates.push({
+			type: "deposit",
+			coin: d.coin,
+			amount,
+			time: d.insertTime,
+		});
+	}
 
-	// Prefer first FDUSD deposit
-	const firstFdusd = sorted.find((d) => d.coin === "FDUSD");
-	if (firstFdusd) return firstFdusd.amount;
+	for (const t of transfers ?? []) {
+		const amount = parseFloat(t.amount);
+		if (Number.isNaN(amount)) continue;
+		candidates.push({
+			type: "transfer",
+			coin: t.asset,
+			amount,
+			time: t.timestamp,
+		});
+	}
 
-	// Fallback to first deposit of any coin
-	return sorted[0].amount;
+	if (candidates.length === 0) return null;
+
+	candidates.sort((a, b) => a.time - b.time);
+	return candidates[0];
 }
 
 // ---- Orchestrator ----
@@ -194,13 +230,19 @@ export async function getDashboardSummary(
 	}
 
 	// Step 2: Parallel Binance calls
-	const [accountResult, tradesResult, snapshotResult, depositResult] =
-		await Promise.allSettled([
-			getAccount(apiKey, secretKey),
-			getMyTrades(apiKey, secretKey, "BTCFDUSD", 20),
-			getAccountSnapshot(apiKey, secretKey),
-			getDepositHistory(apiKey, secretKey),
-		]);
+	const [
+		accountResult,
+		tradesResult,
+		snapshotResult,
+		depositResult,
+		transferResult,
+	] = await Promise.allSettled([
+		getAccount(apiKey, secretKey),
+		getMyTrades(apiKey, secretKey, "BTCFDUSD", 20),
+		getAccountSnapshot(apiKey, secretKey),
+		getDepositHistory(apiKey, secretKey),
+		getTransferHistory(apiKey, secretKey),
+	]);
 
 	// Step 3: Map balances
 	let balances: DashboardBalance[] | null = null;
@@ -240,13 +282,14 @@ export async function getDashboardSummary(
 		}
 	}
 
-	// Step 6: Compute initial balance from deposits
-	let initialBalance: InitialBalance = null;
-	if (depositResult.status === "fulfilled") {
-		initialBalance = computeInitialBalance(depositResult.value);
-	} else {
+	// Step 6: Compute earliest funding operation from deposits + transfers.
+	// Transfers degrade gracefully: if the endpoint fails (e.g. missing
+	// permission), we log a warning and fall back to deposits only.
+	const deposits: BinanceDeposit[] =
+		depositResult.status === "fulfilled" ? depositResult.value : [];
+
+	if (depositResult.status === "rejected") {
 		const msg = depositResult.reason?.message || "";
-		// Only add error for non-404 failures (permissions, rate limits, etc.)
 		if (!msg.includes("404")) {
 			errors.push({
 				source: "deposits",
@@ -254,6 +297,22 @@ export async function getDashboardSummary(
 			});
 		}
 	}
+
+	let transfers: BinanceTransfer[] | undefined;
+	if (transferResult.status === "fulfilled") {
+		transfers = transferResult.value;
+	} else {
+		transfers = undefined;
+		const msg = transferResult.reason?.message || "";
+		console.warn(
+			`[Dashboard] Transfer history unavailable, falling back to deposits only: ${msg}`,
+		);
+	}
+
+	const initialBalance: InitialOperation | null = computeInitialBalance(
+		deposits,
+		transfers,
+	);
 
 	// Step 7: Compute bot status
 	const botStatus = buildBotStatus(true); // Keys exist → bot is considered active

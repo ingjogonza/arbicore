@@ -74,6 +74,20 @@ export interface BinanceDeposit {
 	confirmTimes: string;
 }
 
+/**
+ * Internal/universal transfer entry from GET /sapi/v1/asset/transfer.
+ * Binance returns transfers wrapped under `rows` with a `total` count;
+ * this type represents a single row.
+ */
+export interface BinanceTransfer {
+	asset: string;
+	amount: string;
+	type: string; // e.g. "MAIN_UMFUTURE", "FUNDING_MAIN", etc.
+	status: string; // "CONFIRMED" | "FAILED" | "PENDING"
+	tranId: number;
+	timestamp: number;
+}
+
 // ---- Service-level mapped types (returned by dashboardService) ----
 
 export interface DashboardBalance {
@@ -107,7 +121,18 @@ export interface DashboardBotStatus {
 }
 
 /**
- * First FDUSD deposit amount, representing initial investment.
- * null if no FDUSD deposits found or deposit history unavailable.
+ * Earliest account operation (deposit or transfer), representing how the
+ * account was initially funded. `null` when no operations are available.
  */
-export type InitialBalance = string | null;
+export interface InitialOperation {
+	type: "deposit" | "transfer";
+	coin: string;
+	amount: number;
+	time: number; // Unix timestamp (ms)
+}
+
+/**
+ * @deprecated Replaced by `InitialOperation`. Kept temporarily for
+ * incremental migration until the route schema and consumers update.
+ */
+export type InitialBalance = InitialOperation | null;

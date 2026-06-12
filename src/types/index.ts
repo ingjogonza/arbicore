@@ -155,13 +155,28 @@ export interface DashboardBotStatus {
 	strategy: string;
 }
 
+/**
+ * Earliest account operation (deposit or transfer) that funded the
+ * account, or `null` when no operation history is available.
+ */
+export interface InitialOperation {
+	type: "deposit" | "transfer";
+	coin: string;
+	amount: number;
+	time: number; // Unix timestamp (ms)
+}
+
 export interface DashboardSummaryData {
 	balances: DashboardBalance[] | null;
 	trades: DashboardTrade[] | null;
 	equityHistory: DashboardEquityPoint[] | null;
 	botStatus: DashboardBotStatus;
-	/** First FDUSD deposit amount (string) or null if unavailable */
-	initialBalance: string | null;
+	/**
+	 * Earliest detected account operation (deposit or transfer), or `null`
+	 * when no operations are available. Replaces the previous static
+	 * "initial balance" string.
+	 */
+	initialBalance: InitialOperation | null;
 }
 
 export interface DashboardSummaryResponse {

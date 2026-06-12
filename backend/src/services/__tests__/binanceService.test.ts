@@ -8,7 +8,13 @@ import https from "https";
 import { EventEmitter } from "events";
 
 // RED phase: import will fail until module exists
-import { getAccount, getMyTrades, getAccountSnapshot } from "../binanceService";
+import {
+	getAccount,
+	getMyTrades,
+	getAccountSnapshot,
+	getDepositHistory,
+	getTransferHistory,
+} from "../binanceService";
 
 /**
  * Helper: creates a mock IncomingMessage that emits data + end.
@@ -216,6 +222,176 @@ describe("binanceService", () => {
 			assert.strictEqual(result.code, 200);
 			assert.strictEqual(result.snapshotVos.length, 1);
 			assert.strictEqual(result.snapshotVos[0].data.balances[0].asset, "BTC");
+		});
+	});
+
+	describe("getDepositHistory", () => {
+		it("returns deposit records when Binance has deposits (Deposits available scenario)", async () => {
+			const mockDeposits = [
+				{
+					amount: "1000.00",
+					coin: "FDUSD",
+					network: "BSC",
+					status: 1,
+					address: "0xabc",
+					addressTag: "",
+					txId: "tx-1",
+					insertTime: 1_700_000_000_000,
+					confirmTimes: "1/1",
+				},
+				{
+					amount: "0.5",
+					coin: "BTC",
+					network: "BTC",
+					status: 1,
+					address: "1abc",
+					addressTag: "",
+					txId: "tx-2",
+					insertTime: 1_710_000_000_000,
+					confirmTimes: "2/2",
+				},
+			];
+
+			https.get = ((urlOrOpts: unknown, callback?: (res: unknown) => void) => {
+				const urlStr =
+					typeof urlOrOpts === "string" ? urlOrOpts : JSON.stringify(urlOrOpts);
+
+				assert.ok(
+					urlStr.includes("/sapi/v1/capital/deposit/hisrec"),
+					`URL should include /sapi/v1/capital/deposit/hisrec, got ${urlStr}`,
+				);
+				assert.ok(
+					urlStr.includes("status=1"),
+					"URL should include status=1 to filter successful deposits",
+				);
+				assert.ok(
+					urlStr.includes("timestamp="),
+					"URL should include timestamp",
+				);
+				assert.ok(
+					urlStr.includes("signature="),
+					"URL should include signature",
+				);
+
+				if (callback) callback(createMockResponse(200, mockDeposits));
+				return createMockResponse(200, mockDeposits) as any;
+			}) as typeof https.get;
+
+			const result = await getDepositHistory(
+				"test-api-key",
+				"test-secret-key",
+			);
+
+			assert.strictEqual(result.length, 2, "should return both deposits");
+			assert.strictEqual(result[0].coin, "FDUSD");
+			assert.strictEqual(result[0].amount, "1000.00");
+			assert.strictEqual(result[0].insertTime, 1_700_000_000_000);
+			assert.strictEqual(result[1].coin, "BTC");
+			assert.strictEqual(result[1].insertTime, 1_710_000_000_000);
+		});
+
+		it("returns an empty array when Binance has no deposits (No deposits exist scenario)", async () => {
+			https.get = ((_urlOrOpts: unknown, callback?: (res: unknown) => void) => {
+				if (callback) callback(createMockResponse(200, []));
+				return createMockResponse(200, []) as any;
+			}) as typeof https.get;
+
+			const result = await getDepositHistory(
+				"test-api-key",
+				"test-secret-key",
+			);
+
+			assert.ok(
+				Array.isArray(result),
+				"result must be an array per spec",
+			);
+			assert.strictEqual(
+				result.length,
+				0,
+				"should return empty array when Binance returns []",
+			);
+		});
+	});
+
+	describe("getTransferHistory", () => {
+		it("returns transfer rows when Binance has transfers (Transfers available scenario)", async () => {
+			const mockTransferResponse = {
+				total: 2,
+				rows: [
+					{
+						asset: "USDT",
+						amount: "250.00",
+						type: "MAIN_UMFUTURE",
+						status: "CONFIRMED",
+						tranId: 9001,
+						timestamp: 1_700_000_000_000,
+					},
+					{
+						asset: "FDUSD",
+						amount: "100.00",
+						type: "MAIN_UMFUTURE",
+						status: "CONFIRMED",
+						tranId: 9002,
+						timestamp: 1_705_000_000_000,
+					},
+				],
+			};
+
+			https.get = ((urlOrOpts: unknown, callback?: (res: unknown) => void) => {
+				const urlStr =
+					typeof urlOrOpts === "string" ? urlOrOpts : JSON.stringify(urlOrOpts);
+
+				assert.ok(
+					urlStr.includes("/sapi/v1/asset/transfer"),
+					`URL should include /sapi/v1/asset/transfer, got ${urlStr}`,
+				);
+				assert.ok(
+					urlStr.includes("type=MAIN_UMFUTURE"),
+					"URL should include the transfer type parameter",
+				);
+				assert.ok(
+					urlStr.includes("signature="),
+					"URL should include signature",
+				);
+
+				if (callback) callback(createMockResponse(200, mockTransferResponse));
+				return createMockResponse(200, mockTransferResponse) as any;
+			}) as typeof https.get;
+
+			const result = await getTransferHistory(
+				"test-api-key",
+				"test-secret-key",
+			);
+
+			assert.ok(Array.isArray(result), "result must be the rows array");
+			assert.strictEqual(
+				result.length,
+				2,
+				"should unwrap rows from the Binance wrapper",
+			);
+			assert.strictEqual(result[0].asset, "USDT");
+			assert.strictEqual(result[0].amount, "250.00");
+			assert.strictEqual(result[0].timestamp, 1_700_000_000_000);
+			assert.strictEqual(result[1].asset, "FDUSD");
+		});
+
+		it("rejects when the transfer endpoint returns an error (Transfer API unavailable scenario)", async () => {
+			// Binance returns 4xx with a JSON error body when the API key lacks
+			// the Universal Transfer permission. The service must reject so the
+			// caller (dashboardService) can degrade gracefully via Promise.allSettled.
+			https.get = ((_urlOrOpts: unknown, callback?: (res: unknown) => void) => {
+				const errorBody = JSON.stringify({
+					code: -2015,
+					msg: "Invalid API-key, IP, or permissions for action.",
+				});
+				if (callback) callback(createMockResponse(401, errorBody));
+				return createMockResponse(401, errorBody) as any;
+			}) as typeof https.get;
+
+			await assert.rejects(
+				() => getTransferHistory("bad-key", "bad-secret"),
+				/Binance API 401/,
+			);
 		});
 	});
 });

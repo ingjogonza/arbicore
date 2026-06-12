@@ -14,11 +14,13 @@ import { EquityChart } from "../components/dashboard/EquityChart";
 import { BotStatusPanel } from "../components/dashboard/BotStatusPanel";
 import { RecentTradesTable } from "../components/dashboard/RecentTradesTable";
 import { useDashboard } from "../hooks/useDashboard";
+import { useTrading } from "../hooks/useTrading";
 import { useAuth } from "../contexts/AuthContext";
 
 export const DashboardScreen: React.FC = () => {
 	const navigate = useNavigate();
 	const { data, loading, error, errors, refetch } = useDashboard();
+	const { withdraw } = useTrading();
 	const { onboarding } = useAuth();
 	const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
 
@@ -30,22 +32,25 @@ export const DashboardScreen: React.FC = () => {
 		return parseFloat(fdusd.free);
 	}, [data?.balances]);
 
-	// Initial balance from first FDUSD deposit (via API) or fallback to current
-	const initialBalance = useMemo(() => {
-		if (data?.initialBalance) {
-			const val = parseFloat(data.initialBalance);
-			return Number.isNaN(val) ? currentBalance : val;
+	// Initial operation (deposit or transfer) detected from Binance history
+	const initialOperation = data?.initialBalance ?? null;
+
+	// Numeric initial amount used for derived KPI math; falls back to the
+	// current balance so derived values stay sane when no operation is known.
+	const initialAmount = useMemo(() => {
+		if (initialOperation && Number.isFinite(initialOperation.amount)) {
+			return initialOperation.amount;
 		}
 		return currentBalance;
-	}, [data?.initialBalance, currentBalance]);
+	}, [initialOperation, currentBalance]);
 
 	// Derived KPI values (guard against NaN)
-	const grossProfit = Number.isFinite(initialBalance)
-		? currentBalance - initialBalance
+	const grossProfit = Number.isFinite(initialAmount)
+		? currentBalance - initialAmount
 		: 0;
 	const performance =
-		initialBalance > 0 && Number.isFinite(initialBalance)
-			? ((grossProfit / initialBalance) * 100).toFixed(2)
+		initialAmount > 0 && Number.isFinite(initialAmount)
+			? ((grossProfit / initialAmount) * 100).toFixed(2)
 			: "0.00";
 	const pendingFee = Math.max(0, grossProfit * 0.07);
 
@@ -110,7 +115,7 @@ export const DashboardScreen: React.FC = () => {
 				{/* KPI Grid */}
 				{data && (
 					<KPIGrid
-						initialBalance={initialBalance}
+						initialOperation={initialOperation}
 						currentBalance={currentBalance}
 						grossProfit={grossProfit}
 						performance={performance}
@@ -121,7 +126,10 @@ export const DashboardScreen: React.FC = () => {
 				{/* Main Content Grid */}
 				{data && (
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-						<EquityChart data={data.equityHistory ?? []} />
+						<EquityChart
+							data={data.equityHistory ?? []}
+							initialOperation={initialOperation}
+						/>
 						<BotStatusPanel
 							botStatus={
 								data.botStatus ?? {
@@ -166,6 +174,9 @@ export const DashboardScreen: React.FC = () => {
 			<WithdrawModal
 				isOpen={withdrawModalOpen}
 				onClose={() => setWithdrawModalOpen(false)}
+				initialOperation={initialOperation}
+				currentBalance={currentBalance}
+				onWithdraw={withdraw}
 			/>
 		</DashboardLayout>
 	);

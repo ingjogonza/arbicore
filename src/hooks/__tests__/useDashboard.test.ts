@@ -263,4 +263,89 @@ describe("useDashboard", () => {
 			});
 		});
 	});
+
+	// ---------------------------------------------------------------
+	// InitialOperation propagation (spec: Hook Integration)
+	// ---------------------------------------------------------------
+
+	describe("initialBalance propagation", () => {
+		test("exposes the InitialOperation object as data.initialBalance when API returns one", async () => {
+			const initialOperation = {
+				type: "deposit" as const,
+				coin: "FDUSD",
+				amount: 1000,
+				time: 1_700_000_000_000,
+			};
+
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						success: true,
+						data: { ...mockDashboardData, initialBalance: initialOperation },
+					}),
+			}) as any;
+
+			const { result } = renderHook(() => useDashboard());
+
+			await waitFor(() => {
+				expect(result.current.loading).toBe(false);
+			});
+
+			// Object passthrough — full deepEqual proves type, coin, amount, time
+			// flow through the hook unchanged.
+			expect(result.current.data?.initialBalance).toEqual(initialOperation);
+			expect(result.current.data?.initialBalance).not.toBeNull();
+			expect(result.current.data?.initialBalance?.type).toBe("deposit");
+			expect(result.current.data?.initialBalance?.coin).toBe("FDUSD");
+			expect(result.current.data?.initialBalance?.amount).toBe(1000);
+			expect(result.current.data?.initialBalance?.time).toBe(1_700_000_000_000);
+		});
+
+		test("propagates a transfer InitialOperation with type='transfer'", async () => {
+			const initialOperation = {
+				type: "transfer" as const,
+				coin: "USDT",
+				amount: 250,
+				time: 1_705_000_000_000,
+			};
+
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						success: true,
+						data: { ...mockDashboardData, initialBalance: initialOperation },
+					}),
+			}) as any;
+
+			const { result } = renderHook(() => useDashboard());
+
+			await waitFor(() => {
+				expect(result.current.loading).toBe(false);
+			});
+
+			expect(result.current.data?.initialBalance).toEqual(initialOperation);
+		});
+
+		test("exposes initialBalance as null when API returns null", async () => {
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						success: true,
+						data: { ...mockDashboardData, initialBalance: null },
+					}),
+			}) as any;
+
+			const { result } = renderHook(() => useDashboard());
+
+			await waitFor(() => {
+				expect(result.current.loading).toBe(false);
+			});
+
+			// Explicit null — not undefined, not omitted.
+			expect(result.current.data?.initialBalance).toBeNull();
+		});
+	});
 });
