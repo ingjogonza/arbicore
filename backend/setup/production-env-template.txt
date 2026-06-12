@@ -1,0 +1,44 @@
+# ============================================
+# CryptoInvestor — PRODUCTION Environment Variables
+# ============================================
+# Instructions:
+# 1. Fill in your production Supabase and MongoDB values
+# 2. Rename to:  backend/.env.production
+# 3. Copy to Raspberry Pi: scp backend/.env.production pi@<ip>:~/arbicore/backend/.env
+# ============================================
+
+# ── Backend API server port ──
+PORT=3000
+
+# ── Robot API server port (mTLS only, no CORS) ──
+ROBOT_PORT=3001
+
+# ── MongoDB Atlas (production cluster) ──
+# Create: https://cloud.mongodb.com → Clusters → Create
+# Get URI: Connect → Drivers → Node.js → connection string
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/cryptoinvestor?retryWrites=true&w=majority
+
+# ── Supabase production project ──
+# New project: https://supabase.com → New project
+# URL:          Project Settings → API → Project URL
+# Service Role: Project Settings → API → service_role key
+SUPABASE_URL=https://<tu-proyecto-produccion>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<tu-service-role-key-produccion>
+
+# ── AES-256-GCM master key ──
+# Generate: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+MASTER_KEY=<tu-master-key-base64>
+
+# ── CORS allowed origin(s) ──
+# Múltiples orígenes separados por coma.
+# Si el frontend se sirve desde el backend (SERVE_FRONTEND=true),
+# solo necesitás el dominio de la app.
+CORS_ORIGIN=https://<tu-dominio>.duckdns.org
+
+# ── Serve frontend from backend (true for Raspberry Pi single-server) ──
+SERVE_FRONTEND=true
+
+# ── mTLS certificate paths (opcional, para robot) ──
+# TLS_CA_CERT=./certs/ca.crt
+# TLS_SERVER_CERT=./certs/server.crt
+# TLS_SERVER_KEY=./certs/server.key

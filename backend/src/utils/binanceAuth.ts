@@ -7,25 +7,24 @@ import { createHmac } from "crypto";
 /**
  * Builds the HMAC-SHA256 signature required by Binance REST APIs.
  *
- * Binance expects the signature over the full request line:
- *   ${METHOD} ${PATH}?${QUERY_STRING}
+ * Binance expects the signature over the query string only:
+ *   ${QUERY_STRING}
  *
- * @param method    HTTP method (GET, POST, etc.)
- * @param path      API path, e.g. '/api/v3/account'
- * @param query     Query string (may be empty for SIGNED endpoints)
+ * See: https://developers.binance.com/docs/binance-spot-api-docs/rest-api/request-security
+ *
+ * @param _method   HTTP method (unused — Binance HMAC signs only the query string)
+ * @param _path     API path (unused — Binance HMAC signs only the query string)
+ * @param query     Query string with all params (timestamp, symbol, etc.)
  * @param secretKey Binance secret key (decrypted)
  * @returns hex-encoded signature string to append as &signature=...
  */
 export function buildSignature(
-	method: string,
-	path: string,
+	_method: string,
+	_path: string,
 	query: string,
 	secretKey: string,
 ): string {
-	const signPayload = query
-		? `${method} ${path}?${query}`
-		: `${method} ${path}`;
-	return createHmac("sha256", secretKey).update(signPayload).digest("hex");
+	return createHmac("sha256", secretKey).update(query).digest("hex");
 }
 
 /**

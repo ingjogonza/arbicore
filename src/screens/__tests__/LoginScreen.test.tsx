@@ -135,7 +135,9 @@ describe("LoginScreen", () => {
 		renderLogin();
 
 		await waitFor(() =>
-			expect(mockNavigate).toHaveBeenCalledWith("/dashboard"),
+			expect(mockNavigate).toHaveBeenCalledWith("/dashboard", {
+				replace: true,
+			}),
 		);
 	});
 
@@ -155,7 +157,9 @@ describe("LoginScreen", () => {
 		await userEvent.click(screen.getByRole("button", { name: /ingresar/i }));
 
 		await waitFor(() =>
-			expect(mockNavigate).toHaveBeenCalledWith("/2fa-verify"),
+			expect(mockNavigate).toHaveBeenCalledWith("/2fa-verify", {
+				replace: true,
+			}),
 		);
 	});
 

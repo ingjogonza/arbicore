@@ -3,10 +3,20 @@
 # ============================================
 # Corre typecheck y tests en push a main y PRs.
 #
-# Secrets requeridos (GitHub → Settings → Secrets and variables → Actions):
-#   SUPABASE_URL               — https://tu-proyecto.supabase.co
-#   SUPABASE_SERVICE_ROLE_KEY  — service_role_key de Supabase
-#   MASTER_KEY                 — node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+# Secrets requeridos en GitHub (Settings → Secrets and variables → Actions):
+#
+#   CI / Development (needed for tests to pass):
+#     SUPABASE_URL               — https://tu-proyecto-ci.supabase.co
+#     SUPABASE_SERVICE_ROLE_KEY  — service_role_key de Supabase CI
+#     MASTER_KEY                 — node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+#
+#   Producción (needed for deployment / Raspberry Pi):
+#     PROD_SUPABASE_URL             — URL del proyecto Supabase de producción
+#     PROD_SUPABASE_SERVICE_ROLE_KEY — service_role key de producción
+#     PROD_SUPABASE_ANON_KEY         — anon key de producción
+#     PROD_MONGODB_URI               — URI de MongoDB Atlas de producción
+#     PROD_MASTER_KEY                — Master key de producción
+#     PROD_DOMAIN                    — Dominio DuckDNS (ej: api.tu-proyecto.duckdns.org)
 # ============================================
 
 name: CI

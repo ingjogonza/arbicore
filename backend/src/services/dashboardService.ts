@@ -3,20 +3,28 @@
 // ============================================
 
 import { getApiKeys } from "./keysService";
-import { getAccount, getMyTrades, getAccountSnapshot } from "./binanceService";
+import {
+	getAccount,
+	getMyTrades,
+	getAccountSnapshot,
+	getDepositHistory,
+} from "./binanceService";
+import { cacheGet, cacheSet } from "./cacheService";
 import { NotFoundError } from "../utils/errors";
 import type {
 	DashboardBalance,
 	DashboardTrade,
 	DashboardEquityPoint,
 	DashboardBotStatus,
+	InitialBalance,
 	BinanceAccountResponse,
 	BinanceTradeResponse,
 	BinanceSnapshotResponse,
+	BinanceDeposit,
 } from "../types/binance";
 
 export interface DashboardError {
-	source: "balances" | "trades" | "equity";
+	source: "balances" | "trades" | "deposits" | "equity";
 	message: string;
 	code?: string;
 }
@@ -26,6 +34,7 @@ export interface DashboardSummaryData {
 	trades: DashboardTrade[] | null;
 	equityHistory: DashboardEquityPoint[] | null;
 	botStatus: DashboardBotStatus;
+	initialBalance: InitialBalance; // from first FDUSD deposit
 }
 
 export interface DashboardSummaryResult {
@@ -90,15 +99,17 @@ export function mapEquityHistory(
 	const validSnapshots = snapshot.snapshotVos.filter(
 		(s) => s.data.totalAssetOfBtc,
 	);
-	validSnapshots.sort((a, b) => a.time - b.time);
+	validSnapshots.sort((a, b) => a.updateTime - b.updateTime);
 
-	return validSnapshots.map((s) => {
-		const d = new Date(s.time);
-		return {
-			date: `${months[d.getMonth()]} ${d.getDate()}`,
-			value: parseFloat(s.data.totalAssetOfBtc),
-		};
-	});
+	return validSnapshots
+		.map((s) => {
+			const d = new Date(s.updateTime);
+			return {
+				date: `${months[d.getMonth()]} ${d.getDate()}`,
+				value: parseFloat(s.data.totalAssetOfBtc),
+			};
+		})
+		.filter((p) => !Number.isNaN(p.value));
 }
 
 /**
@@ -113,15 +124,44 @@ export function buildBotStatus(hasKeys: boolean): DashboardBotStatus {
 	};
 }
 
+// ---- Pure functions for deposits ----
+
+/**
+ * Computes initial balance from deposit history.
+ * Uses the first completed FDUSD deposit as the initial investment.
+ * Falls back to the first deposit of any coin if no FDUSD found.
+ */
+export function computeInitialBalance(
+	deposits: BinanceDeposit[],
+): InitialBalance {
+	// Sort by time ascending
+	const sorted = [...deposits].sort((a, b) => a.insertTime - b.insertTime);
+
+	if (sorted.length === 0) return null;
+
+	// Prefer first FDUSD deposit
+	const firstFdusd = sorted.find((d) => d.coin === "FDUSD");
+	if (firstFdusd) return firstFdusd.amount;
+
+	// Fallback to first deposit of any coin
+	return sorted[0].amount;
+}
+
 // ---- Orchestrator ----
 
 /**
  * Main orchestrator — called by routes/dashboard.ts
+ * Results are cached in MongoDB for 30s to avoid Binance rate limits.
  */
 export async function getDashboardSummary(
 	userId: string,
 ): Promise<DashboardSummaryResult> {
 	const errors: DashboardError[] = [];
+	const CACHE_TTL = 30; // seconds
+
+	// Check cache first
+	const cached = await cacheGet<DashboardSummaryResult>(`dashboard:${userId}`);
+	if (cached) return cached;
 
 	// Step 1: Get user's API keys
 	let apiKey: string;
@@ -132,12 +172,13 @@ export async function getDashboardSummary(
 		secretKey = keys.secretKey;
 	} catch (err) {
 		if (err instanceof NotFoundError) {
-			return {
+			const result: DashboardSummaryResult = {
 				data: {
 					balances: null,
 					trades: null,
 					equityHistory: null,
 					botStatus: buildBotStatus(false),
+					initialBalance: null,
 				},
 				errors: [
 					{
@@ -147,16 +188,18 @@ export async function getDashboardSummary(
 					},
 				],
 			};
+			return result;
 		}
 		throw err; // Unexpected error — let error handler catch
 	}
 
 	// Step 2: Parallel Binance calls
-	const [accountResult, tradesResult, snapshotResult] =
+	const [accountResult, tradesResult, snapshotResult, depositResult] =
 		await Promise.allSettled([
 			getAccount(apiKey, secretKey),
 			getMyTrades(apiKey, secretKey, "BTCFDUSD", 20),
 			getAccountSnapshot(apiKey, secretKey),
+			getDepositHistory(apiKey, secretKey),
 		]);
 
 	// Step 3: Map balances
@@ -186,14 +229,42 @@ export async function getDashboardSummary(
 	if (snapshotResult.status === "fulfilled") {
 		equityHistory = mapEquityHistory(snapshotResult.value);
 	} else {
-		errors.push({
-			source: "equity",
-			message: snapshotResult.reason?.message || "Failed to fetch snapshots",
-		});
+		// 404 from accountSnapshot means daily snapshots not enabled.
+		// This is common — silently return null instead of showing an error.
+		const msg = snapshotResult.reason?.message || "";
+		if (!msg.includes("404") && !msg.includes("Daily account snapshot")) {
+			errors.push({
+				source: "equity",
+				message: msg || "Failed to fetch snapshots",
+			});
+		}
 	}
 
-	// Step 6: Compute bot status
+	// Step 6: Compute initial balance from deposits
+	let initialBalance: InitialBalance = null;
+	if (depositResult.status === "fulfilled") {
+		initialBalance = computeInitialBalance(depositResult.value);
+	} else {
+		const msg = depositResult.reason?.message || "";
+		// Only add error for non-404 failures (permissions, rate limits, etc.)
+		if (!msg.includes("404")) {
+			errors.push({
+				source: "deposits",
+				message: msg || "Failed to fetch deposit history",
+			});
+		}
+	}
+
+	// Step 7: Compute bot status
 	const botStatus = buildBotStatus(true); // Keys exist → bot is considered active
 
-	return { data: { balances, trades, equityHistory, botStatus }, errors };
+	const result: DashboardSummaryResult = {
+		data: { balances, trades, equityHistory, botStatus, initialBalance },
+		errors,
+	};
+
+	// Cache result (fire-and-forget, ignore errors)
+	cacheSet(`dashboard:${userId}`, result, CACHE_TTL).catch(() => {});
+
+	return result;
 }

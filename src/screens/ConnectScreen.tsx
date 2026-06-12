@@ -3,7 +3,7 @@
 // ============================================
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useSafeNavigate } from "../hooks/useSafeNavigate";
 import {
 	Key,
 	Lock,
@@ -33,7 +33,7 @@ type ConnectionState =
 	| "was_disconnected";
 
 export const ConnectScreen: React.FC = () => {
-	const navigate = useNavigate();
+	const navigate = useSafeNavigate();
 	const { state: authState, onboarding, fetchOnboardingStatus } = useAuth();
 
 	const [connectionState, setConnectionState] =

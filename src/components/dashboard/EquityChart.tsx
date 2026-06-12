@@ -27,7 +27,8 @@ export const EquityChart: React.FC<EquityChartProps> = ({ data }) => {
 	const [selectedPeriod, setSelectedPeriod] = useState<Period>("ALL");
 
 	// Reference line at first data point value (initial balance)
-	const initialBalance = data.length > 0 ? data[0].value : 0;
+	const initialBalance =
+		data.length > 0 && Number.isFinite(data[0].value) ? data[0].value : 0;
 
 	if (data.length === 0) {
 		return (
@@ -90,7 +91,16 @@ export const EquityChart: React.FC<EquityChartProps> = ({ data }) => {
 							tick={{ fontSize: 12, fill: "#94a3b8" }}
 							axisLine={false}
 							tickLine={false}
-							tickFormatter={(v: number) => `$${v / 1000}k`}
+							domain={[0, "auto"]}
+							allowDecimals={true}
+							tickCount={5}
+							tickFormatter={(v: number) =>
+								Number.isFinite(v) && v > 0
+									? v < 1
+										? `${v.toFixed(6)} BTC`
+										: `${v.toFixed(4)} BTC`
+									: ""
+							}
 						/>
 						<Tooltip
 							contentStyle={{
@@ -100,8 +110,8 @@ export const EquityChart: React.FC<EquityChartProps> = ({ data }) => {
 								boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
 							}}
 							formatter={(value: number) => [
-								`$${value.toLocaleString()}`,
-								"Balance",
+								Number.isFinite(value) ? `${value.toFixed(8)} BTC` : "0 BTC",
+								"Portfolio Value",
 							]}
 						/>
 						{initialBalance > 0 && (
