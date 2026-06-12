@@ -322,8 +322,8 @@ export async function getDashboardSummary(
 		errors,
 	};
 
-	// Cache result (fire-and-forget, ignore errors)
-	cacheSet(`dashboard:${userId}`, result, CACHE_TTL).catch(() => {});
+	// Cache result (best-effort, don't block response)
+	await cacheSet(`dashboard:${userId}`, result, CACHE_TTL).catch(() => {});
 
 	return result;
 }
