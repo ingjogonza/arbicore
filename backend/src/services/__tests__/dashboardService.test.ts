@@ -9,11 +9,14 @@ import {
 	mapTrades,
 	mapEquityHistory,
 	buildBotStatus,
+	computeTotalDeposited,
 } from "../dashboardService";
 import type {
 	BinanceAccountResponse,
 	BinanceTradeResponse,
 	BinanceSnapshotResponse,
+	BinanceDeposit,
+	BinanceTransfer,
 } from "../../types/binance";
 
 describe("dashboardService — pure functions", () => {
@@ -261,6 +264,115 @@ describe("dashboardService — pure functions", () => {
 			assert.strictEqual(status.active, false);
 			assert.strictEqual(status.runningSince, null);
 			assert.strictEqual(status.strategy, "Conservative Spot Trading");
+		});
+	});
+
+	describe("computeTotalDeposited — per-coin cumulative aggregation", () => {
+		const deposit = (
+			coin: string,
+			amount: string,
+			insertTime: number,
+			status: number = 1,
+		): BinanceDeposit => ({
+			amount,
+			coin,
+			network: "BSC",
+			status,
+			address: "addr",
+			addressTag: "",
+			txId: `tx-${insertTime}`,
+			insertTime,
+			confirmTimes: "1/1",
+		});
+
+		const transfer = (
+			asset: string,
+			amount: string,
+			timestamp: number,
+		): BinanceTransfer => ({
+			asset,
+			amount,
+			type: "MAIN_UMFUTURE",
+			status: "CONFIRMED",
+			tranId: timestamp,
+			timestamp,
+		});
+
+		it("returns empty object when both deposits and transfers are empty", () => {
+			const result = computeTotalDeposited([], []);
+			assert.deepStrictEqual(result, {});
+		});
+
+		it("returns empty object when deposits undefined and transfers empty", () => {
+			const result = computeTotalDeposited([], undefined);
+			assert.deepStrictEqual(result, {});
+		});
+
+		it("aggregates multiple FDUSD deposits into a single coin key", () => {
+			const deposits: BinanceDeposit[] = [
+				deposit("FDUSD", "1.00", 1_700_000_000_000),
+				deposit("FDUSD", "9.14", 1_710_000_000_000),
+			];
+			const result = computeTotalDeposited(deposits, []);
+			assert.deepStrictEqual(result, { FDUSD: 10.14 });
+		});
+
+		it("aggregates deposits and transfers across multiple coins", () => {
+			const deposits: BinanceDeposit[] = [
+				deposit("FDUSD", "5.00", 1_700_000_000_000),
+				deposit("BTC", "0.5", 1_700_000_001_000),
+			];
+			const transfers: BinanceTransfer[] = [
+				transfer("USDT", "100.00", 1_700_000_002_000),
+			];
+			const result = computeTotalDeposited(deposits, transfers);
+			assert.deepStrictEqual(result, { FDUSD: 5, BTC: 0.5, USDT: 100 });
+		});
+
+		it("includes both status=1 and status=6 deposits", () => {
+			const deposits: BinanceDeposit[] = [
+				deposit("FDUSD", "5.00", 1_700_000_000_000, 1),
+				deposit("FDUSD", "5.14", 1_710_000_000_000, 6),
+			];
+			const result = computeTotalDeposited(deposits, []);
+			assert.deepStrictEqual(result, { FDUSD: 10.14 });
+		});
+
+		it("excludes pending deposits (status=0)", () => {
+			const deposits: BinanceDeposit[] = [
+				deposit("FDUSD", "5.00", 1_700_000_000_000, 1),
+				deposit("FDUSD", "10.00", 1_700_000_001_000, 0),
+			];
+			const result = computeTotalDeposited(deposits, []);
+			assert.deepStrictEqual(result, { FDUSD: 5 });
+		});
+
+		it("ignores deposits with non-numeric amounts", () => {
+			const deposits: BinanceDeposit[] = [
+				deposit("FDUSD", "5.00", 1_700_000_000_000),
+				deposit("BTC", "not-a-number", 1_700_000_001_000),
+			];
+			const result = computeTotalDeposited(deposits, []);
+			assert.deepStrictEqual(result, { FDUSD: 5 });
+		});
+
+		it("returns the full per-coin map including non-stablecoins (BTC, ETH)", () => {
+			// The map is a faithful record of all deposits; the dashboard's
+			// "seed capital" total filters to STABLECOINS at the orchestrator
+			// level, not here. This test documents the contract.
+			const deposits: BinanceDeposit[] = [
+				deposit("FDUSD", "100.00", 1_700_000_000_000),
+				deposit("USDT", "50.00", 1_700_000_001_000),
+				deposit("USDC", "25.00", 1_700_000_002_000),
+				deposit("BTC", "0.001", 1_700_000_003_000),
+			];
+			const result = computeTotalDeposited(deposits, []);
+			assert.deepStrictEqual(result, {
+				FDUSD: 100,
+				USDT: 50,
+				USDC: 25,
+				BTC: 0.001,
+			});
 		});
 	});
 });

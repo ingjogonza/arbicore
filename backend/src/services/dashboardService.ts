@@ -8,23 +8,36 @@ import {
 	getMyTrades,
 	getAccountSnapshot,
 	getDepositHistory,
+	getTransferHistory,
+	getSubAccountTransferHistory,
 } from "./binanceService";
 import { cacheGet, cacheSet } from "./cacheService";
 import { NotFoundError } from "../utils/errors";
+import {
+	STABLECOINS,
+} from "../types/binance";
 import type {
 	DashboardBalance,
 	DashboardTrade,
 	DashboardEquityPoint,
 	DashboardBotStatus,
-	InitialBalance,
+	CumulativeDeposits,
 	BinanceAccountResponse,
 	BinanceTradeResponse,
 	BinanceSnapshotResponse,
 	BinanceDeposit,
+	BinanceTransfer,
 } from "../types/binance";
 
+/** Transfer sources to query in parallel for cumulative-deposits detection. */
+const TRANSFER_SOURCES = [
+	{ name: "MAIN_UMFUTURE", call: (k: string, s: string) => getTransferHistory(k, s, "MAIN_UMFUTURE") },
+	{ name: "MAIN_FUNDING", call: (k: string, s: string) => getTransferHistory(k, s, "MAIN_FUNDING") },
+	{ name: "sub-account-received", call: (k: string, s: string) => getSubAccountTransferHistory(k, s) },
+] as const;
+
 export interface DashboardError {
-	source: "balances" | "trades" | "deposits" | "equity";
+	source: "balances" | "trades" | "deposits" | "transfers" | "equity";
 	message: string;
 	code?: string;
 }
@@ -34,7 +47,14 @@ export interface DashboardSummaryData {
 	trades: DashboardTrade[] | null;
 	equityHistory: DashboardEquityPoint[] | null;
 	botStatus: DashboardBotStatus;
-	initialBalance: InitialBalance; // from first FDUSD deposit
+	/** Per-coin cumulative deposits. Empty when no deposits detected. */
+	cumulativeDeposits: CumulativeDeposits;
+	/**
+	 * Sum of stablecoin deposits (USDT + FDUSD + USDC). Represents the user's
+	 * seed capital in USD-equivalent terms. Falls back to current account
+	 * balance when no stablecoin deposits are detected.
+	 */
+	totalStablecoinDepositedUSD: number;
 }
 
 export interface DashboardSummaryResult {
@@ -124,27 +144,37 @@ export function buildBotStatus(hasKeys: boolean): DashboardBotStatus {
 	};
 }
 
-// ---- Pure functions for deposits ----
+// ---- Pure functions for deposits & transfers ----
 
 /**
- * Computes initial balance from deposit history.
- * Uses the first completed FDUSD deposit as the initial investment.
- * Falls back to the first deposit of any coin if no FDUSD found.
+ * Aggregates the cumulative amount of deposits and incoming transfers grouped by coin.
+ *
+ * Per the `total-deposited-detection` spec:
+ * - Sums deposits with status=1 (success) and status=6 (credited).
+ * - Excludes pending deposits (status=0).
+ * - Sums incoming transfers from fan-out sources.
+ * - Returns `{}` when both sources are empty or undefined.
  */
-export function computeInitialBalance(
+export function computeTotalDeposited(
 	deposits: BinanceDeposit[],
-): InitialBalance {
-	// Sort by time ascending
-	const sorted = [...deposits].sort((a, b) => a.insertTime - b.insertTime);
+	transfers?: BinanceTransfer[],
+): CumulativeDeposits {
+	const totals: CumulativeDeposits = {};
 
-	if (sorted.length === 0) return null;
+	for (const d of deposits) {
+		if (d.status === 0) continue; // Exclude pending
+		const amount = parseFloat(d.amount);
+		if (Number.isNaN(amount)) continue;
+		totals[d.coin] = (totals[d.coin] ?? 0) + amount;
+	}
 
-	// Prefer first FDUSD deposit
-	const firstFdusd = sorted.find((d) => d.coin === "FDUSD");
-	if (firstFdusd) return firstFdusd.amount;
+	for (const t of transfers ?? []) {
+		const amount = parseFloat(t.amount);
+		if (Number.isNaN(amount)) continue;
+		totals[t.asset] = (totals[t.asset] ?? 0) + amount;
+	}
 
-	// Fallback to first deposit of any coin
-	return sorted[0].amount;
+	return totals;
 }
 
 // ---- Orchestrator ----
@@ -178,7 +208,8 @@ export async function getDashboardSummary(
 					trades: null,
 					equityHistory: null,
 					botStatus: buildBotStatus(false),
-					initialBalance: null,
+					cumulativeDeposits: {},
+					totalStablecoinDepositedUSD: 0,
 				},
 				errors: [
 					{
@@ -193,14 +224,20 @@ export async function getDashboardSummary(
 		throw err; // Unexpected error — let error handler catch
 	}
 
-	// Step 2: Parallel Binance calls
-	const [accountResult, tradesResult, snapshotResult, depositResult] =
-		await Promise.allSettled([
-			getAccount(apiKey, secretKey),
-			getMyTrades(apiKey, secretKey, "BTCFDUSD", 20),
-			getAccountSnapshot(apiKey, secretKey),
-			getDepositHistory(apiKey, secretKey),
-		]);
+	// Step 2: Parallel Binance calls (non-transfer sources + transfer fan-out)
+	const [
+		accountResult,
+		tradesResult,
+		snapshotResult,
+		depositResult,
+		...transferResults
+	] = await Promise.allSettled([
+		getAccount(apiKey, secretKey),
+		getMyTrades(apiKey, secretKey, "BTCFDUSD", 20),
+		getAccountSnapshot(apiKey, secretKey),
+		getDepositHistory(apiKey, secretKey),
+		...TRANSFER_SOURCES.map((src) => src.call(apiKey, secretKey)),
+	]);
 
 	// Step 3: Map balances
 	let balances: DashboardBalance[] | null = null;
@@ -240,13 +277,14 @@ export async function getDashboardSummary(
 		}
 	}
 
-	// Step 6: Compute initial balance from deposits
-	let initialBalance: InitialBalance = null;
-	if (depositResult.status === "fulfilled") {
-		initialBalance = computeInitialBalance(depositResult.value);
-	} else {
+	// Step 6: Aggregate cumulative deposits and incoming transfers per coin.
+	// Transfer sources degrade gracefully: if any source fails (e.g.
+	// missing permission), we log a warning and continue with other sources.
+	const deposits: BinanceDeposit[] =
+		depositResult.status === "fulfilled" ? depositResult.value : [];
+
+	if (depositResult.status === "rejected") {
 		const msg = depositResult.reason?.message || "";
-		// Only add error for non-404 failures (permissions, rate limits, etc.)
 		if (!msg.includes("404")) {
 			errors.push({
 				source: "deposits",
@@ -255,16 +293,58 @@ export async function getDashboardSummary(
 		}
 	}
 
+	const allTransfers: BinanceTransfer[] = [];
+	for (let i = 0; i < transferResults.length; i++) {
+		const result = transferResults[i];
+		if (result.status === "fulfilled") {
+			allTransfers.push(...result.value);
+		} else {
+			console.warn(
+				`[Dashboard] ${TRANSFER_SOURCES[i].name} transfer source failed: ${result.reason?.message || "unknown"}`,
+			);
+		}
+	}
+
+	const cumulativeDeposits: CumulativeDeposits = computeTotalDeposited(
+		deposits,
+		allTransfers,
+	);
+
+	// Derive totalStablecoinDepositedUSD for KPI math chain. Sums USDT + FDUSD
+	// + USDC (treated as 1:1 with USD). Falls back to current account balance
+	// when no stablecoin deposits are detected, preserving the existing KPI
+	// math (grossProfit, performance%) which depends on a positive baseline.
+	const stablecoinSum = STABLECOINS.reduce(
+		(sum, coin) => sum + (cumulativeDeposits[coin] ?? 0),
+		0,
+	);
+
+	const fallbackBalance =
+		balances?.reduce((sum, b) => {
+			const v = parseFloat(b.free) + parseFloat(b.locked);
+			return sum + (Number.isNaN(v) ? 0 : v);
+		}, 0) ?? 0;
+
+	const totalStablecoinDepositedUSD =
+		stablecoinSum > 0 ? stablecoinSum : fallbackBalance;
+
 	// Step 7: Compute bot status
 	const botStatus = buildBotStatus(true); // Keys exist → bot is considered active
 
 	const result: DashboardSummaryResult = {
-		data: { balances, trades, equityHistory, botStatus, initialBalance },
+		data: {
+			balances,
+			trades,
+			equityHistory,
+			botStatus,
+			cumulativeDeposits,
+			totalStablecoinDepositedUSD,
+		},
 		errors,
 	};
 
-	// Cache result (fire-and-forget, ignore errors)
-	cacheSet(`dashboard:${userId}`, result, CACHE_TTL).catch(() => {});
+	// Cache result (best-effort, don't block response)
+	await cacheSet(`dashboard:${userId}`, result, CACHE_TTL).catch(() => {});
 
 	return result;
 }

@@ -10,12 +10,52 @@ project:
     - Todos los artefactos SDD en openspec/
     - Código en inglés, UI en español si es el idioma del producto
     - Strict TDD cuando hay tests
-  strict_tdd: true
-  test_command_frontend: "npm test"
-  test_command_backend: "cd backend && npm test"
-  test_count: 406
-  test_suites: 56
-  coverage_frontend_lines: "77.27%"
-  coverage_frontend_branches: "76.16%"
-  coverage_backend_lines: "98.30%"
-  coverage_backend_branches: "91.04%"
+  testing:
+    frontend:
+      runner: Jest 30
+      transformer: ts-jest 29
+      framework: Testing Library (React, DOM, jest-dom, user-event)
+      mocks: MSW 2
+      env: jsdom
+      config: jest.config.cjs
+      tsconfig: tsconfig.test.json
+      test_command: "npm test"
+      test_count: 28
+      coverage_lines: "77.27%"
+      coverage_branches: "76.16%"
+    backend:
+      runner: Node --test (native)
+      loader: tsx
+      http: Supertest
+      config: backend/tsconfig.test.json
+      test_command: "cd backend && npm test"
+      test_count: 15
+      coverage_lines: "98.30%"
+      coverage_branches: "91.04%"
+    robot:
+      runner: none
+      test_command: none
+      status: placeholder
+    strict_tdd: true
+    total_test_count: 43
+    notes:
+      - CI pipeline configured (GitHub Actions — typecheck + test on push/PR to main/develop)
+      - No ESLint or Prettier detected
+      - Python robot has no tests yet
+
+sdd_init:
+  timestamp: "2026-06-17T00:00:00Z"
+  mode: hybrid
+  agent: deepseek-v4-flash
+  remote_ok: false
+  detected_stack:
+    loc_estimate: "~15k-25k frontend, ~10k-15k backend"
+    total_test_files: 43
+    frontend_tests: 29
+    backend_tests: 14
+    robot_tests: 0
+    ci_pipeline: active (GitHub Actions)
+    linter: none detected
+    formatter: none detected
+    type_checker: TypeScript (tsc --noEmit)
+    deployment: Docker + PM2 + Raspberry Pi

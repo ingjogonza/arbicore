@@ -155,13 +155,47 @@ export interface DashboardBotStatus {
 	strategy: string;
 }
 
+/**
+ * Per-coin cumulative deposits. Keys are coin symbols (e.g. "FDUSD", "BTC"),
+ * values are total amounts deposited or received via incoming transfers.
+ * Empty when no deposits detected.
+ */
+export type CumulativeDeposits = Record<string, number>;
+
+/** Coins treated as 1:1 with USD for the "seed capital" total. */
+export const STABLECOINS = ["FDUSD", "USDT", "USDC"] as const;
+export type Stablecoin = (typeof STABLECOINS)[number];
+
 export interface DashboardSummaryData {
 	balances: DashboardBalance[] | null;
 	trades: DashboardTrade[] | null;
 	equityHistory: DashboardEquityPoint[] | null;
 	botStatus: DashboardBotStatus;
-	/** First FDUSD deposit amount (string) or null if unavailable */
-	initialBalance: string | null;
+	/**
+	 * Per-coin cumulative deposits. Replaces the previous
+	 * `initialBalance: InitialOperation | null` field. See
+	 * `dashboard-cumulative-deposits-display` spec.
+	 */
+	cumulativeDeposits: CumulativeDeposits;
+	/**
+	 * Sum of stablecoin deposits (USDT + FDUSD + USDC). Represents the user's
+	 * seed capital in USD-equivalent terms. Falls back to current account
+	 * balance when no stablecoin deposits are detected.
+	 */
+	totalStablecoinDepositedUSD: number;
+}
+
+/**
+ * @deprecated Replaced by `CumulativeDeposits`. The single-operation shape is
+ * kept as a type alias only for components that still consume the legacy
+ * `initialBalance` field (e.g. EquityChart reference line, WithdrawModal).
+ * Will be removed once those components are migrated to the new contract.
+ */
+export interface InitialOperation {
+	type: "deposit" | "transfer";
+	coin: string;
+	amount: number;
+	time: number; // Unix timestamp (ms)
 }
 
 export interface DashboardSummaryResponse {

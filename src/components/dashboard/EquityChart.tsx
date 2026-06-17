@@ -14,21 +14,28 @@ import {
 	ReferenceLine,
 } from "recharts";
 import { Card } from "../ui/Card";
-import type { DashboardEquityPoint } from "../../types";
+import type { DashboardEquityPoint, InitialOperation } from "../../types";
 
 interface EquityChartProps {
 	data: DashboardEquityPoint[];
+	initialOperation: InitialOperation | null;
 }
 
 const PERIODS = ["1D", "1W", "1M", "3M", "ALL"] as const;
 type Period = (typeof PERIODS)[number];
 
-export const EquityChart: React.FC<EquityChartProps> = ({ data }) => {
+export const EquityChart: React.FC<EquityChartProps> = ({
+	data,
+	initialOperation,
+}) => {
 	const [selectedPeriod, setSelectedPeriod] = useState<Period>("ALL");
 
-	// Reference line at first data point value (initial balance)
-	const initialBalance =
-		data.length > 0 && Number.isFinite(data[0].value) ? data[0].value : 0;
+	// Reference line position is driven by the detected initial operation.
+	// When no operation is available, the line is omitted entirely.
+	const initialReferenceValue =
+		initialOperation && Number.isFinite(initialOperation.amount)
+			? initialOperation.amount
+			: null;
 
 	if (data.length === 0) {
 		return (
@@ -114,9 +121,9 @@ export const EquityChart: React.FC<EquityChartProps> = ({ data }) => {
 								"Portfolio Value",
 							]}
 						/>
-						{initialBalance > 0 && (
+						{initialReferenceValue !== null && (
 							<ReferenceLine
-								y={initialBalance}
+								y={initialReferenceValue}
 								stroke="#94a3b8"
 								strokeDasharray="5 5"
 								label={{

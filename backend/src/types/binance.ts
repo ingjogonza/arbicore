@@ -74,6 +74,23 @@ export interface BinanceDeposit {
 	confirmTimes: string;
 }
 
+/** Union of universal transfer type values queried for initial-operation detection. */
+export type BinanceTransferType = "MAIN_UMFUTURE" | "MAIN_FUNDING" | "MAIN_C2C";
+
+/**
+ * Internal/universal transfer entry from GET /sapi/v1/asset/transfer.
+ * Binance returns transfers wrapped under `rows` with a `total` count;
+ * this type represents a single row.
+ */
+export interface BinanceTransfer {
+	asset: string;
+	amount: string;
+	type: string; // e.g. "MAIN_UMFUTURE", "FUNDING_MAIN", etc.
+	status: string; // "CONFIRMED" | "FAILED" | "PENDING"
+	tranId: number;
+	timestamp: number;
+}
+
 // ---- Service-level mapped types (returned by dashboardService) ----
 
 export interface DashboardBalance {
@@ -107,7 +124,29 @@ export interface DashboardBotStatus {
 }
 
 /**
- * First FDUSD deposit amount, representing initial investment.
- * null if no FDUSD deposits found or deposit history unavailable.
+ * Per-coin cumulative deposits. Keys are coin symbols (e.g. "FDUSD", "BTC"),
+ * values are total amounts in that coin. Empty when no deposits detected.
  */
-export type InitialBalance = string | null;
+export type CumulativeDeposits = Record<string, number>;
+
+/** Coins treated as 1:1 with USD for the "seed capital" total. */
+export const STABLECOINS = ["FDUSD", "USDT", "USDC"] as const;
+export type Stablecoin = (typeof STABLECOINS)[number];
+
+/**
+ * @deprecated Replaced by `CumulativeDeposits`. The single-operation shape is
+ * no longer used by the dashboard. Kept as a type alias only for any external
+ * consumers that have not yet migrated; will be removed in a future release.
+ */
+export type InitialOperation = {
+	type: "deposit" | "transfer";
+	coin: string;
+	amount: number;
+	time: number;
+};
+
+/**
+ * @deprecated Replaced by `CumulativeDeposits`. See `InitialOperation` for
+ * the migration note.
+ */
+export type InitialBalance = InitialOperation | null;

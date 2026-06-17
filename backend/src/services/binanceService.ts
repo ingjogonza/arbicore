@@ -155,10 +155,13 @@ export async function getAccountSnapshot(
 	);
 }
 
-import type { BinanceDeposit } from "../types/binance";
+import type { BinanceDeposit, BinanceTransfer } from "../types/binance";
 
 /**
  * GET /sapi/v1/capital/deposit/hisrec — returns deposit history.
+ * Issues parallel calls for status=1 (success) and status=6 (credited)
+ * and concatenates results. If one status call fails, the other is still
+ * returned so the caller can degrade gracefully.
  * When no coin filter is provided, returns deposits for all coins.
  */
 export async function getDepositHistory(
@@ -166,12 +169,75 @@ export async function getDepositHistory(
 	secretKey: string,
 	coin?: string,
 ): Promise<BinanceDeposit[]> {
-	const query: Record<string, string | number> = { status: 1 };
-	if (coin) query.coin = coin;
-	return binanceGet<BinanceDeposit[]>(
-		"/sapi/v1/capital/deposit/hisrec",
-		query,
+	const baseQuery: Record<string, string | number> = {};
+	if (coin) baseQuery.coin = coin;
+
+	const [status1, status6] = await Promise.allSettled([
+		binanceGet<BinanceDeposit[]>(
+			"/sapi/v1/capital/deposit/hisrec",
+			{ ...baseQuery, status: 1 },
+			apiKey,
+			secretKey,
+		),
+		binanceGet<BinanceDeposit[]>(
+			"/sapi/v1/capital/deposit/hisrec",
+			{ ...baseQuery, status: 6 },
+			apiKey,
+			secretKey,
+		),
+	]);
+
+	const results: BinanceDeposit[] = [];
+	if (status1.status === "fulfilled") results.push(...(status1.value ?? []));
+	if (status6.status === "fulfilled") results.push(...(status6.value ?? []));
+	return results;
+}
+
+/** Wrapper shape returned by /sapi/v1/asset/transfer. */
+interface BinanceTransferResponse {
+	total: number;
+	rows: BinanceTransfer[];
+}
+
+/**
+ * GET /sapi/v1/asset/transfer — returns universal transfer history.
+ *
+ * Binance requires the `type` parameter for this endpoint. We query the most
+ * common transfer flow (`MAIN_UMFUTURE`); callers that need other types can
+ * pass a different value. The API key needs the "Universal Transfer" permission;
+ * if missing, the endpoint returns an error and callers should degrade gracefully.
+ */
+export async function getTransferHistory(
+	apiKey: string,
+	secretKey: string,
+	type: string = "MAIN_UMFUTURE",
+): Promise<BinanceTransfer[]> {
+	const response = await binanceGet<BinanceTransferResponse>(
+		"/sapi/v1/asset/transfer",
+		{ type },
 		apiKey,
 		secretKey,
 	);
+	return response?.rows ?? [];
+}
+
+/**
+ * GET /sapi/v1/sub-account/transfer/subUserHistory — returns sub-account
+ * internal transfer history. FDUSD internal/sub-account transfers populate
+ * this endpoint, not the universal-transfer endpoint with MAIN_UMFUTURE.
+ *
+ * Requires "Sub-account Transfer" API key permission. If missing, the caller
+ * should degrade gracefully (the dashboard fan-out handles this).
+ */
+export async function getSubAccountTransferHistory(
+	apiKey: string,
+	secretKey: string,
+): Promise<BinanceTransfer[]> {
+	const response = await binanceGet<BinanceTransferResponse>(
+		"/sapi/v1/sub-account/transfer/subUserHistory",
+		{},
+		apiKey,
+		secretKey,
+	);
+	return response?.rows ?? [];
 }
