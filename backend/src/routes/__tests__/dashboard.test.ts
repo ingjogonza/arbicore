@@ -34,7 +34,7 @@ function createMockResponse(
  * Dispatches a mocked https.get call by Binance path.
  * Each handler returns either a body or null to reject with a 4xx.
  */
-type Handler = () =>
+type Handler = (urlStr: string) =>
 	| { status: number; body: unknown }
 	| { status: number; body: unknown; reject?: false };
 type HandlerMap = {
@@ -67,7 +67,7 @@ function installBinanceMock(handlers: HandlerMap): () => void {
 			handler = handlers.transfer;
 
 		const result = handler
-			? handler()
+			? handler(urlStr)
 			: { status: 404, body: { msg: "no handler" } };
 		const res = createMockResponse(result.status, result.body);
 		if (callback) callback(res);
@@ -193,23 +193,19 @@ describe("Dashboard Routes", () => {
 		// (but we don't check specific errors since Binance response varies)
 		assert.ok(body.data, "should have data");
 
-		// initialBalance is now either null or an InitialOperation object
-		// (never a bare string). The Fastify schema must permit object shape.
-		const ib = body.data.initialBalance;
-		if (ib !== null && ib !== undefined) {
-			assert.strictEqual(
-				typeof ib,
-				"object",
-				"initialBalance must be null or an InitialOperation object, never a string",
-			);
-			assert.ok(
-				["deposit", "transfer"].includes(ib.type),
-				`initialBalance.type must be "deposit" or "transfer", got: ${ib.type}`,
-			);
-			assert.strictEqual(typeof ib.coin, "string");
-			assert.strictEqual(typeof ib.amount, "number");
-			assert.strictEqual(typeof ib.time, "number");
-		}
+		// cumulativeDeposits is now a Record<string, number> (per-coin map).
+		// totalDepositedFDUSD is the derived FDUSD total for KPI math.
+		assert.ok(body.data, "should have data");
+		assert.strictEqual(
+			typeof body.data.cumulativeDeposits,
+			"object",
+			"cumulativeDeposits must be a Record<string, number>",
+		);
+		assert.strictEqual(
+			typeof body.data.totalDepositedFDUSD,
+			"number",
+			"totalDepositedFDUSD must be a number",
+		);
 	});
 
 	// ----------------------------------------------------------------
@@ -242,7 +238,7 @@ describe("Dashboard Routes", () => {
 			await ensureFreshCache();
 		});
 
-		it("returns the earliest deposit as initialBalance when deposit precedes transfer (unconditional object-shape contract)", async () => {
+		it("returns the cumulative per-coin map when deposit precedes transfer", async () => {
 			restoreHttps = installBinanceMock({
 				account: () => ({
 					status: 200,
@@ -265,38 +261,48 @@ describe("Dashboard Routes", () => {
 					status: 200,
 					body: { code: 200, msg: "", snapshotVos: [] },
 				}),
-				deposit: () => ({
-					status: 200,
-					body: [
-						{
-							amount: "1000.00",
-							coin: "FDUSD",
-							network: "BSC",
-							status: 1,
-							address: "0xabc",
-							addressTag: "",
-							txId: "tx-1",
-							insertTime: 1_700_000_000_000,
-							confirmTimes: "1/1",
-						},
-					],
-				}),
-				transfer: () => ({
-					status: 200,
-					body: {
-						total: 1,
-						rows: [
+				deposit: (urlStr: string) => {
+				if (urlStr.includes("status=1")) {
+					return {
+						status: 200,
+						body: [
 							{
-								asset: "USDT",
-								amount: "500.00",
-								type: "MAIN_UMFUTURE",
-								status: "CONFIRMED",
-								tranId: 9001,
-								timestamp: 1_710_000_000_000, // later than deposit
+								amount: "1000.00",
+								coin: "FDUSD",
+								network: "BSC",
+								status: 1,
+								address: "0xabc",
+								addressTag: "",
+								txId: "tx-1",
+								insertTime: 1_700_000_000_000,
+								confirmTimes: "1/1",
 							},
 						],
-					},
-				}),
+					};
+				}
+				return { status: 200, body: [] };
+			},
+				transfer: (urlStr: string) => {
+					if (urlStr.includes("type=MAIN_UMFUTURE")) {
+						return {
+							status: 200,
+							body: {
+								total: 1,
+								rows: [
+									{
+										asset: "USDT",
+										amount: "500.00",
+										type: "MAIN_UMFUTURE",
+										status: "CONFIRMED",
+										tranId: 9001,
+										timestamp: 1_710_000_000_000, // later than deposit
+									},
+								],
+							},
+						};
+					}
+					return { status: 200, body: { total: 0, rows: [] } };
+				},
 			});
 
 			const res = await app.inject({
@@ -309,17 +315,15 @@ describe("Dashboard Routes", () => {
 			const body = JSON.parse(res.body);
 			assert.strictEqual(body.success, true);
 
-			// Unconditional object-shape assertions — this is the contract test
-			// that the previous version skipped when initialBalance was null.
-			assert.deepStrictEqual(body.data.initialBalance, {
-				type: "deposit",
-				coin: "FDUSD",
-				amount: 1000,
-				time: 1_700_000_000_000,
+			// Unconditional shape assertion — cumulativeDeposits sums everything per coin.
+			assert.deepStrictEqual(body.data.cumulativeDeposits, {
+				FDUSD: 1000,
+				USDT: 500,
 			});
+			assert.strictEqual(body.data.totalDepositedFDUSD, 1000);
 		});
 
-		it("returns the earliest transfer as initialBalance when transfer precedes deposit", async () => {
+		it("returns the cumulative map with transfer-only sources when transfer precedes deposit", async () => {
 			restoreHttps = installBinanceMock({
 				account: () => ({
 					status: 200,
@@ -342,38 +346,48 @@ describe("Dashboard Routes", () => {
 					status: 200,
 					body: { code: 200, msg: "", snapshotVos: [] },
 				}),
-				deposit: () => ({
-					status: 200,
-					body: [
-						{
-							amount: "1000.00",
-							coin: "FDUSD",
-							network: "BSC",
-							status: 1,
-							address: "0xabc",
-							addressTag: "",
-							txId: "tx-late",
-							insertTime: 1_710_000_000_000, // later than transfer
-							confirmTimes: "1/1",
-						},
-					],
-				}),
-				transfer: () => ({
-					status: 200,
-					body: {
-						total: 1,
-						rows: [
+				deposit: (urlStr: string) => {
+				if (urlStr.includes("status=1")) {
+					return {
+						status: 200,
+						body: [
 							{
-								asset: "USDT",
-								amount: "250.00",
-								type: "MAIN_UMFUTURE",
-								status: "CONFIRMED",
-								tranId: 9001,
-								timestamp: 1_700_000_000_000,
+								amount: "1000.00",
+								coin: "FDUSD",
+								network: "BSC",
+								status: 1,
+								address: "0xabc",
+								addressTag: "",
+								txId: "tx-late",
+								insertTime: 1_710_000_000_000, // later than transfer
+								confirmTimes: "1/1",
 							},
 						],
-					},
-				}),
+					};
+				}
+				return { status: 200, body: [] };
+			},
+				transfer: (urlStr: string) => {
+					if (urlStr.includes("type=MAIN_UMFUTURE")) {
+						return {
+							status: 200,
+							body: {
+								total: 1,
+								rows: [
+									{
+										asset: "USDT",
+										amount: "250.00",
+										type: "MAIN_UMFUTURE",
+										status: "CONFIRMED",
+										tranId: 9001,
+										timestamp: 1_700_000_000_000,
+									},
+								],
+							},
+						};
+					}
+					return { status: 200, body: { total: 0, rows: [] } };
+				},
 			});
 
 			const res = await app.inject({
@@ -384,15 +398,14 @@ describe("Dashboard Routes", () => {
 
 			assert.strictEqual(res.statusCode, 200);
 			const body = JSON.parse(res.body);
-			assert.deepStrictEqual(body.data.initialBalance, {
-				type: "transfer",
-				coin: "USDT",
-				amount: 250,
-				time: 1_700_000_000_000,
+			assert.deepStrictEqual(body.data.cumulativeDeposits, {
+				FDUSD: 1000,
+				USDT: 250,
 			});
+			assert.strictEqual(body.data.totalDepositedFDUSD, 1000);
 		});
 
-		it("falls back to deposit when transfer API fails (graceful degradation, no error propagation)", async () => {
+		it("falls back to deposit-only aggregation when transfer API fails (graceful degradation, no error propagation)", async () => {
 			restoreHttps = installBinanceMock({
 				account: () => ({
 					status: 200,
@@ -415,22 +428,27 @@ describe("Dashboard Routes", () => {
 					status: 200,
 					body: { code: 200, msg: "", snapshotVos: [] },
 				}),
-				deposit: () => ({
-					status: 200,
-					body: [
-						{
-							amount: "750.00",
-							coin: "FDUSD",
-							network: "BSC",
-							status: 1,
-							address: "0xabc",
-							addressTag: "",
-							txId: "tx-1",
-							insertTime: 1_700_000_000_000,
-							confirmTimes: "1/1",
-						},
-					],
-				}),
+				deposit: (urlStr: string) => {
+				if (urlStr.includes("status=1")) {
+					return {
+						status: 200,
+						body: [
+							{
+								amount: "750.00",
+								coin: "FDUSD",
+								network: "BSC",
+								status: 1,
+								address: "0xabc",
+								addressTag: "",
+								txId: "tx-1",
+								insertTime: 1_700_000_000_000,
+								confirmTimes: "1/1",
+							},
+						],
+					};
+				}
+				return { status: 200, body: [] };
+			},
 				// Transfer endpoint returns -2015 (no permission) — common Binance failure.
 				transfer: () => ({
 					status: 401,
@@ -451,13 +469,11 @@ describe("Dashboard Routes", () => {
 			const body = JSON.parse(res.body);
 			assert.strictEqual(body.success, true);
 
-			// Unconditional shape assertion — fallback MUST yield the deposit.
-			assert.deepStrictEqual(body.data.initialBalance, {
-				type: "deposit",
-				coin: "FDUSD",
-				amount: 750,
-				time: 1_700_000_000_000,
+			// Unconditional shape assertion — fallback MUST yield the deposit amount.
+			assert.deepStrictEqual(body.data.cumulativeDeposits, {
+				FDUSD: 750,
 			});
+			assert.strictEqual(body.data.totalDepositedFDUSD, 750);
 
 			// Graceful degradation: transfer failure SHALL NOT propagate to errors[].
 			const errs = (body.errors ?? []) as Array<{ source: string }>;
@@ -469,7 +485,7 @@ describe("Dashboard Routes", () => {
 			);
 		});
 
-		it("detects FDUSD internal transfer via sub-account when universal-transfer sources fail (Partial transfer source failure scenario)", async () => {
+		it("aggregates FDUSD internal transfer via sub-account when universal-transfer sources fail (Partial transfer source failure scenario)", async () => {
 			restoreHttps = installBinanceMock({
 				account: () => ({
 					status: 200,
@@ -534,12 +550,13 @@ describe("Dashboard Routes", () => {
 			assert.strictEqual(body.success, true);
 
 			// The FDUSD sub-account transfer is the only funding operation.
-			assert.deepStrictEqual(body.data.initialBalance, {
-				type: "transfer",
-				coin: "FDUSD",
-				amount: 10.14119044,
-				time: 1_700_000_000_000,
+			assert.deepStrictEqual(body.data.cumulativeDeposits, {
+				FDUSD: 10.14119044,
 			});
+			assert.strictEqual(
+				body.data.totalDepositedFDUSD,
+				10.14119044,
+			);
 
 			// No transfers error in public errors per partial-failure spec.
 			const errs = (body.errors ?? []) as Array<{ source: string }>;
@@ -551,7 +568,7 @@ describe("Dashboard Routes", () => {
 			);
 		});
 
-		it("falls back to universal transfer when sub-account source fails (Partial transfer source failure scenario)", async () => {
+		it("aggregates universal transfer when sub-account source fails (Partial transfer source failure scenario)", async () => {
 			restoreHttps = installBinanceMock({
 				account: () => ({
 					status: 200,
@@ -579,22 +596,27 @@ describe("Dashboard Routes", () => {
 					body: [],
 				}),
 				// Universal-transfer endpoint returns USDT transfer.
-				transfer: () => ({
-					status: 200,
-					body: {
-						total: 1,
-						rows: [
-							{
-								asset: "USDT",
-								amount: "250.00",
-								type: "MAIN_UMFUTURE",
-								status: "CONFIRMED",
-								tranId: 9001,
-								timestamp: 1_700_000_000_000,
+				transfer: (urlStr: string) => {
+					if (urlStr.includes("type=MAIN_UMFUTURE")) {
+						return {
+							status: 200,
+							body: {
+								total: 1,
+								rows: [
+									{
+										asset: "USDT",
+										amount: "250.00",
+										type: "MAIN_UMFUTURE",
+										status: "CONFIRMED",
+										tranId: 9001,
+										timestamp: 1_700_000_000_000,
+									},
+								],
 							},
-						],
-					},
-				}),
+						};
+					}
+					return { status: 200, body: { total: 0, rows: [] } };
+				},
 				// Sub-account endpoint returns 401 (no permission).
 				subAccountTransfer: () => ({
 					status: 401,
@@ -615,13 +637,12 @@ describe("Dashboard Routes", () => {
 			const body = JSON.parse(res.body);
 			assert.strictEqual(body.success, true);
 
-			// The USDT universal transfer is the earliest (and only) funding operation.
-			assert.deepStrictEqual(body.data.initialBalance, {
-				type: "transfer",
-				coin: "USDT",
-				amount: 250,
-				time: 1_700_000_000_000,
+			// The USDT universal transfer is the only funding operation.
+			assert.deepStrictEqual(body.data.cumulativeDeposits, {
+				USDT: 250,
 			});
+			// No FDUSD in the map, fallback to current balance (0 in this mocked scenario).
+			assert.strictEqual(body.data.totalDepositedFDUSD, 0);
 
 			// No transfers error in public errors per partial-failure spec.
 			const errs = (body.errors ?? []) as Array<{ source: string }>;

@@ -4,21 +4,6 @@
 
 import { render, screen } from "@testing-library/react";
 import { KPIGrid } from "../KPIGrid";
-import type { InitialOperation } from "../../../types";
-
-const depositOperation: InitialOperation = {
-	type: "deposit",
-	coin: "BTC",
-	amount: 0.5,
-	time: 1700000000000,
-};
-
-const transferOperation: InitialOperation = {
-	type: "transfer",
-	coin: "USDT",
-	amount: 1000,
-	time: 1700000000000,
-};
 
 const baseProps = {
 	currentBalance: 14832.5,
@@ -28,52 +13,90 @@ const baseProps = {
 };
 
 describe("KPIGrid", () => {
-	test("renders all 5 KPI labels", () => {
-		render(<KPIGrid initialOperation={depositOperation} {...baseProps} />);
+	// ── Spec: Total Deposited label always present ──
+	test("renders Total Deposited label and the other 4 KPI labels", () => {
+		render(
+			<KPIGrid
+				cumulativeDeposits={{ FDUSD: 10.14 }}
+				totalDepositedFDUSD={10.14}
+				{...baseProps}
+			/>,
+		);
 
-		expect(screen.getByText(/Depósito Inicial/i)).toBeInTheDocument();
+		expect(screen.getByText("Total Deposited")).toBeInTheDocument();
 		expect(screen.getByText(/Current Balance/i)).toBeInTheDocument();
 		expect(screen.getByText(/Net Profit/i)).toBeInTheDocument();
 		expect(screen.getByText(/Performance/i)).toBeInTheDocument();
 		expect(screen.getByText(/Pending Fee/i)).toBeInTheDocument();
 	});
 
-	// ── Spec: Deposit operation displayed ──
-	test("deposit operation shows 'Depósito Inicial' label and amount with coin", () => {
-		render(<KPIGrid initialOperation={depositOperation} {...baseProps} />);
+	// ── Spec: Only FDUSD — no extra list ──
+	test("only FDUSD in the map shows the FDUSD total with no secondary list", () => {
+		render(
+			<KPIGrid
+				cumulativeDeposits={{ FDUSD: 10.14 }}
+				totalDepositedFDUSD={10.14}
+				{...baseProps}
+			/>,
+		);
 
-		expect(screen.getByText("Depósito Inicial")).toBeInTheDocument();
-		expect(screen.getByText("0.5 BTC")).toBeInTheDocument();
+		expect(screen.getByText("10.14 FDUSD")).toBeInTheDocument();
+		// No extra coin list rendered.
+		expect(screen.queryByText(/0\.5 BTC/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/250 USDT/)).not.toBeInTheDocument();
 	});
 
-	// ── Spec: Transfer operation displayed ──
-	test("transfer operation shows 'Transferencia Inicial' label and amount with coin", () => {
-		render(<KPIGrid initialOperation={transferOperation} {...baseProps} />);
+	// ── Spec: Multiple coins — compact list of other coins ──
+	test("multiple coins show FDUSD primary and compact list of other coins", () => {
+		render(
+			<KPIGrid
+				cumulativeDeposits={{ FDUSD: 10.14, BTC: 0.5, USDT: 250 }}
+				totalDepositedFDUSD={10.14}
+				{...baseProps}
+			/>,
+		);
 
-		expect(screen.getByText("Transferencia Inicial")).toBeInTheDocument();
-		expect(screen.getByText("1000 USDT")).toBeInTheDocument();
+		expect(screen.getByText("10.14 FDUSD")).toBeInTheDocument();
+		// The compact list shows BTC and USDT but not FDUSD again.
+		expect(screen.getByText("0.50 BTC, 250.00 USDT")).toBeInTheDocument();
 	});
 
-	// ── Spec: No initial operation ──
-	test("null operation shows fallback label and no amount value", () => {
-		render(<KPIGrid initialOperation={null} {...baseProps} />);
+	// ── Spec: Empty map — fallback label ──
+	test("empty map shows fallback label and the fallback value", () => {
+		render(
+			<KPIGrid
+				cumulativeDeposits={{}}
+				totalDepositedFDUSD={12.5}
+				{...baseProps}
+			/>,
+		);
 
-		expect(screen.getByText("Sin operación inicial")).toBeInTheDocument();
-		// No amount value should be displayed for the initial-operation card.
-		// The current/net/etc. KPIs still render USDT amounts, but the deposit
-		// card itself must not display BTC/USDT/coin amount text.
-		expect(screen.queryByText(/0(\.|,)\d+ BTC/)).not.toBeInTheDocument();
-		expect(screen.queryByText(/^\d+ USDT$/)).not.toBeInTheDocument();
+		expect(screen.getByText("Sin depósitos detectados")).toBeInTheDocument();
+		// Fallback value still displayed.
+		expect(screen.getByText("12.50 FDUSD")).toBeInTheDocument();
 	});
 
+	// ── Other KPIs unchanged ──
 	test("shows correct formatted current balance", () => {
-		render(<KPIGrid initialOperation={depositOperation} {...baseProps} />);
+		render(
+			<KPIGrid
+				cumulativeDeposits={{ FDUSD: 10.14 }}
+				totalDepositedFDUSD={10.14}
+				{...baseProps}
+			/>,
+		);
 
 		expect(screen.getByText(/14,832\.50 USDT/)).toBeInTheDocument();
 	});
 
 	test("shows correct formatted net profit (positive)", () => {
-		render(<KPIGrid initialOperation={depositOperation} {...baseProps} />);
+		render(
+			<KPIGrid
+				cumulativeDeposits={{ FDUSD: 10.14 }}
+				totalDepositedFDUSD={10.14}
+				{...baseProps}
+			/>,
+		);
 
 		expect(screen.getByText(/\+2,332\.50 USDT/)).toBeInTheDocument();
 	});
@@ -81,7 +104,8 @@ describe("KPIGrid", () => {
 	test("handles negative grossProfit", () => {
 		render(
 			<KPIGrid
-				initialOperation={depositOperation}
+				cumulativeDeposits={{ FDUSD: 10.14 }}
+				totalDepositedFDUSD={10.14}
 				currentBalance={8000}
 				grossProfit={-2000}
 				performance="-20.00"
@@ -95,7 +119,8 @@ describe("KPIGrid", () => {
 	test("shows negative performance indicator", () => {
 		render(
 			<KPIGrid
-				initialOperation={depositOperation}
+				cumulativeDeposits={{ FDUSD: 10.14 }}
+				totalDepositedFDUSD={10.14}
 				currentBalance={8000}
 				grossProfit={-2000}
 				performance="-20.00"

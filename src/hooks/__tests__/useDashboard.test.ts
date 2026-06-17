@@ -48,6 +48,8 @@ const mockDashboardData = {
 		runningSince: "2024-05-01T00:00:00.000Z",
 		strategy: "Conservative Spot Trading",
 	},
+	cumulativeDeposits: { FDUSD: 1000 },
+	totalDepositedFDUSD: 1000,
 };
 
 beforeEach(() => {
@@ -265,24 +267,17 @@ describe("useDashboard", () => {
 	});
 
 	// ---------------------------------------------------------------
-	// InitialOperation propagation (spec: Hook Integration)
+	// Cumulative deposits propagation (spec: Hook Integration)
 	// ---------------------------------------------------------------
 
-	describe("initialBalance propagation", () => {
-		test("exposes the InitialOperation object as data.initialBalance when API returns one", async () => {
-			const initialOperation = {
-				type: "deposit" as const,
-				coin: "FDUSD",
-				amount: 1000,
-				time: 1_700_000_000_000,
-			};
-
+	describe("cumulativeDeposits propagation", () => {
+		test("exposes cumulativeDeposits and totalDepositedFDUSD when API returns them", async () => {
 			global.fetch = jest.fn().mockResolvedValue({
 				ok: true,
 				json: () =>
 					Promise.resolve({
 						success: true,
-						data: { ...mockDashboardData, initialBalance: initialOperation },
+						data: mockDashboardData,
 					}),
 			}) as any;
 
@@ -292,30 +287,21 @@ describe("useDashboard", () => {
 				expect(result.current.loading).toBe(false);
 			});
 
-			// Object passthrough — full deepEqual proves type, coin, amount, time
-			// flow through the hook unchanged.
-			expect(result.current.data?.initialBalance).toEqual(initialOperation);
-			expect(result.current.data?.initialBalance).not.toBeNull();
-			expect(result.current.data?.initialBalance?.type).toBe("deposit");
-			expect(result.current.data?.initialBalance?.coin).toBe("FDUSD");
-			expect(result.current.data?.initialBalance?.amount).toBe(1000);
-			expect(result.current.data?.initialBalance?.time).toBe(1_700_000_000_000);
+			expect(result.current.data?.cumulativeDeposits).toEqual({ FDUSD: 1000 });
+			expect(result.current.data?.totalDepositedFDUSD).toBe(1000);
 		});
 
-		test("propagates a transfer InitialOperation with type='transfer'", async () => {
-			const initialOperation = {
-				type: "transfer" as const,
-				coin: "USDT",
-				amount: 250,
-				time: 1_705_000_000_000,
-			};
-
+		test("propagates a map with multiple coins", async () => {
 			global.fetch = jest.fn().mockResolvedValue({
 				ok: true,
 				json: () =>
 					Promise.resolve({
 						success: true,
-						data: { ...mockDashboardData, initialBalance: initialOperation },
+						data: {
+							...mockDashboardData,
+							cumulativeDeposits: { FDUSD: 1000, BTC: 0.5, USDT: 250 },
+							totalDepositedFDUSD: 1000,
+						},
 					}),
 			}) as any;
 
@@ -325,16 +311,24 @@ describe("useDashboard", () => {
 				expect(result.current.loading).toBe(false);
 			});
 
-			expect(result.current.data?.initialBalance).toEqual(initialOperation);
+			expect(result.current.data?.cumulativeDeposits).toEqual({
+				FDUSD: 1000,
+				BTC: 0.5,
+				USDT: 250,
+			});
 		});
 
-		test("exposes initialBalance as null when API returns null", async () => {
+		test("propagates an empty cumulativeDeposits map", async () => {
 			global.fetch = jest.fn().mockResolvedValue({
 				ok: true,
 				json: () =>
 					Promise.resolve({
 						success: true,
-						data: { ...mockDashboardData, initialBalance: null },
+						data: {
+							...mockDashboardData,
+							cumulativeDeposits: {},
+							totalDepositedFDUSD: 25000,
+						},
 					}),
 			}) as any;
 
@@ -344,8 +338,8 @@ describe("useDashboard", () => {
 				expect(result.current.loading).toBe(false);
 			});
 
-			// Explicit null — not undefined, not omitted.
-			expect(result.current.data?.initialBalance).toBeNull();
+			expect(result.current.data?.cumulativeDeposits).toEqual({});
+			expect(result.current.data?.totalDepositedFDUSD).toBe(25000);
 		});
 	});
 });

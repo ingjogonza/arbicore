@@ -227,6 +227,112 @@ describe("binanceService", () => {
 	});
 
 	describe("getDepositHistory", () => {
+		it("issues parallel calls for status=1 and status=6 and concatenates results (Cumulative deposits scenario)", async () => {
+			const mockStatus1 = [
+				{
+					amount: "5.0",
+					coin: "FDUSD",
+					network: "BSC",
+					status: 1,
+					address: "0xabc",
+					addressTag: "",
+					txId: "tx-1",
+					insertTime: 1_700_000_000_000,
+					confirmTimes: "1/1",
+				},
+			];
+			const mockStatus6 = [
+				{
+					amount: "5.14",
+					coin: "FDUSD",
+					network: "BSC",
+					status: 6,
+					address: "0xdef",
+					addressTag: "",
+					txId: "tx-2",
+					insertTime: 1_710_000_000_000,
+					confirmTimes: "12/12",
+				},
+			];
+
+			const seenStatuses = new Set<string>();
+			https.get = ((urlOrOpts: unknown, callback?: (res: unknown) => void) => {
+				const urlStr =
+					typeof urlOrOpts === "string" ? urlOrOpts : JSON.stringify(urlOrOpts);
+
+				assert.ok(
+					urlStr.includes("/sapi/v1/capital/deposit/hisrec"),
+					`URL should include /sapi/v1/capital/deposit/hisrec, got ${urlStr}`,
+				);
+
+				if (urlStr.includes("status=1")) {
+					seenStatuses.add("1");
+					if (callback) callback(createMockResponse(200, mockStatus1));
+					return createMockResponse(200, mockStatus1) as any;
+				}
+				if (urlStr.includes("status=6")) {
+					seenStatuses.add("6");
+					if (callback) callback(createMockResponse(200, mockStatus6));
+					return createMockResponse(200, mockStatus6) as any;
+				}
+				throw new Error(`Unexpected URL without status=1 or status=6: ${urlStr}`);
+			}) as typeof https.get;
+
+			const result = await getDepositHistory(
+				"test-api-key",
+				"test-secret-key",
+			);
+
+			assert.strictEqual(seenStatuses.size, 2, "should call both status=1 and status=6");
+			assert.ok(seenStatuses.has("1"), "should call status=1");
+			assert.ok(seenStatuses.has("6"), "should call status=6");
+			assert.strictEqual(result.length, 2, "should return both status=1 and status=6 deposits concatenated");
+			const fdusdSum = result
+				.filter((d) => d.coin === "FDUSD")
+				.reduce((s, d) => s + parseFloat(d.amount), 0);
+			assert.strictEqual(fdusdSum, 10.14, "sum of FDUSD should be 5.0 + 5.14 = 10.14");
+		});
+
+		it("degrades gracefully when one status call fails (Partial source failure scenario)", async () => {
+			https.get = ((urlOrOpts: unknown, callback?: (res: unknown) => void) => {
+				const urlStr =
+					typeof urlOrOpts === "string" ? urlOrOpts : JSON.stringify(urlOrOpts);
+				if (urlStr.includes("status=1")) {
+					if (callback)
+						callback(
+							createMockResponse(200, [
+								{
+									amount: "5.0",
+									coin: "FDUSD",
+									network: "BSC",
+									status: 1,
+									address: "0xabc",
+									addressTag: "",
+									txId: "tx-1",
+									insertTime: 1_700_000_000_000,
+									confirmTimes: "1/1",
+								},
+							]),
+						);
+					return createMockResponse(200, []) as any;
+				}
+				if (urlStr.includes("status=6")) {
+					if (callback) callback(createMockResponse(500, "internal error"));
+					return createMockResponse(500, "internal error") as any;
+				}
+				throw new Error(`Unexpected URL: ${urlStr}`);
+			}) as typeof https.get;
+
+			const result = await getDepositHistory(
+				"test-api-key",
+				"test-secret-key",
+			);
+
+			assert.strictEqual(result.length, 1, "should return only the successful status=1 deposit");
+			assert.strictEqual(result[0].coin, "FDUSD");
+			assert.strictEqual(result[0].amount, "5.0");
+		});
+
 		it("returns deposit records when Binance has deposits (Deposits available scenario)", async () => {
 			const mockDeposits = [
 				{
