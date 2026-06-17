@@ -18,7 +18,7 @@ import type {
 	DashboardTrade,
 	DashboardEquityPoint,
 	DashboardBotStatus,
-	InitialOperation,
+	CumulativeDeposits,
 	BinanceAccountResponse,
 	BinanceTradeResponse,
 	BinanceSnapshotResponse,
@@ -26,12 +26,11 @@ import type {
 	BinanceTransfer,
 } from "../types/binance";
 
-/** Transfer sources to query in parallel for initial-operation detection. */
+/** Transfer sources to query in parallel for cumulative-deposits detection. */
 const TRANSFER_SOURCES = [
 	{ name: "MAIN_UMFUTURE", call: (k: string, s: string) => getTransferHistory(k, s, "MAIN_UMFUTURE") },
 	{ name: "MAIN_FUNDING", call: (k: string, s: string) => getTransferHistory(k, s, "MAIN_FUNDING") },
-	{ name: "MAIN_C2C", call: (k: string, s: string) => getTransferHistory(k, s, "MAIN_C2C") },
-	{ name: "sub-account", call: (k: string, s: string) => getSubAccountTransferHistory(k, s) },
+	{ name: "sub-account-received", call: (k: string, s: string) => getSubAccountTransferHistory(k, s) },
 ] as const;
 
 export interface DashboardError {
@@ -45,8 +44,10 @@ export interface DashboardSummaryData {
 	trades: DashboardTrade[] | null;
 	equityHistory: DashboardEquityPoint[] | null;
 	botStatus: DashboardBotStatus;
-	/** Earliest funding operation (deposit or transfer); null when none found. */
-	initialBalance: InitialOperation | null;
+	/** Per-coin cumulative deposits. Empty when no deposits detected. */
+	cumulativeDeposits: CumulativeDeposits;
+	/** FDUSD-denominated total. Falls back to current balance when map is empty. */
+	totalDepositedFDUSD: number;
 }
 
 export interface DashboardSummaryResult {
@@ -139,57 +140,34 @@ export function buildBotStatus(hasKeys: boolean): DashboardBotStatus {
 // ---- Pure functions for deposits & transfers ----
 
 /**
- * Internal unified shape for sorting deposits and transfers together.
- */
-interface CandidateOperation {
-	type: "deposit" | "transfer";
-	coin: string;
-	amount: number;
-	time: number;
-}
-
-/**
- * Computes the earliest account funding operation across deposits and transfers.
+ * Aggregates the cumulative amount of deposits and incoming transfers grouped by coin.
  *
- * Per the `initial-operation-detection` spec:
- * - Merges deposits and transfers, normalizes to a unified shape, and returns
- *   the single earliest one by timestamp.
- * - If `transfers` is undefined (transfer API unavailable) or empty, falls back
- *   to deposits only — graceful degradation, no error propagation.
- * - Returns `null` when both sources are empty.
+ * Per the `total-deposited-detection` spec:
+ * - Sums deposits with status=1 (success) and status=6 (credited).
+ * - Excludes pending deposits (status=0).
+ * - Sums incoming transfers from fan-out sources.
+ * - Returns `{}` when both sources are empty or undefined.
  */
-export function computeInitialBalance(
+export function computeTotalDeposited(
 	deposits: BinanceDeposit[],
 	transfers?: BinanceTransfer[],
-): InitialOperation | null {
-	const candidates: CandidateOperation[] = [];
+): CumulativeDeposits {
+	const totals: CumulativeDeposits = {};
 
 	for (const d of deposits) {
+		if (d.status === 0) continue; // Exclude pending
 		const amount = parseFloat(d.amount);
 		if (Number.isNaN(amount)) continue;
-		candidates.push({
-			type: "deposit",
-			coin: d.coin,
-			amount,
-			time: d.insertTime,
-		});
+		totals[d.coin] = (totals[d.coin] ?? 0) + amount;
 	}
 
 	for (const t of transfers ?? []) {
 		const amount = parseFloat(t.amount);
 		if (Number.isNaN(amount)) continue;
-		candidates.push({
-			type: "transfer",
-			coin: t.asset,
-			amount,
-			time: t.timestamp,
-		});
+		totals[t.asset] = (totals[t.asset] ?? 0) + amount;
 	}
 
-	if (candidates.length === 0) return null;
-
-	candidates.sort((a, b) => a.time - b.time);
-	return candidates[0];
+	return totals;
 }
 
 // ---- Orchestrator ----
@@ -223,7 +201,8 @@ export async function getDashboardSummary(
 					trades: null,
 					equityHistory: null,
 					botStatus: buildBotStatus(false),
-					initialBalance: null,
+					cumulativeDeposits: {},
+					totalDepositedFDUSD: 0,
 				},
 				errors: [
 					{
@@ -291,7 +270,7 @@ export async function getDashboardSummary(
 		}
 	}
 
-	// Step 6: Compute earliest funding operation from deposits + transfers.
+	// Step 6: Aggregate cumulative deposits and incoming transfers per coin.
 	// Transfer sources degrade gracefully: if any source fails (e.g.
 	// missing permission), we log a warning and continue with other sources.
 	const deposits: BinanceDeposit[] =
@@ -319,16 +298,37 @@ export async function getDashboardSummary(
 		}
 	}
 
-	const initialBalance: InitialOperation | null = computeInitialBalance(
+	const cumulativeDeposits: CumulativeDeposits = computeTotalDeposited(
 		deposits,
 		allTransfers,
 	);
+
+	// Derive totalDepositedFDUSD for KPI math chain. Falls back to current
+	// account balance when the map is empty, preserving the existing KPI math
+	// (grossProfit, performance%) which depends on a positive baseline.
+	const fallbackBalance =
+		balances?.reduce((sum, b) => {
+			const v = parseFloat(b.free) + parseFloat(b.locked);
+			return sum + (Number.isNaN(v) ? 0 : v);
+		}, 0) ?? 0;
+
+	const totalDepositedFDUSD =
+		cumulativeDeposits.FDUSD !== undefined && cumulativeDeposits.FDUSD > 0
+			? cumulativeDeposits.FDUSD
+			: fallbackBalance;
 
 	// Step 7: Compute bot status
 	const botStatus = buildBotStatus(true); // Keys exist → bot is considered active
 
 	const result: DashboardSummaryResult = {
-		data: { balances, trades, equityHistory, botStatus, initialBalance },
+		data: {
+			balances,
+			trades,
+			equityHistory,
+			botStatus,
+			cumulativeDeposits,
+			totalDepositedFDUSD,
+		},
 		errors,
 	};
 

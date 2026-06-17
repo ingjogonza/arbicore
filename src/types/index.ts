@@ -156,15 +156,11 @@ export interface DashboardBotStatus {
 }
 
 /**
- * Earliest account operation (deposit or transfer) that funded the
- * account, or `null` when no operation history is available.
+ * Per-coin cumulative deposits. Keys are coin symbols (e.g. "FDUSD", "BTC"),
+ * values are total amounts deposited or received via incoming transfers.
+ * Empty when no deposits detected.
  */
-export interface InitialOperation {
-	type: "deposit" | "transfer";
-	coin: string;
-	amount: number;
-	time: number; // Unix timestamp (ms)
-}
+export type CumulativeDeposits = Record<string, number>;
 
 export interface DashboardSummaryData {
 	balances: DashboardBalance[] | null;
@@ -172,11 +168,29 @@ export interface DashboardSummaryData {
 	equityHistory: DashboardEquityPoint[] | null;
 	botStatus: DashboardBotStatus;
 	/**
-	 * Earliest detected account operation (deposit or transfer), or `null`
-	 * when no operations are available. Replaces the previous static
-	 * "initial balance" string.
+	 * Per-coin cumulative deposits. Replaces the previous
+	 * `initialBalance: InitialOperation | null` field. See
+	 * `dashboard-cumulative-deposits-display` spec.
 	 */
-	initialBalance: InitialOperation | null;
+	cumulativeDeposits: CumulativeDeposits;
+	/**
+	 * FDUSD-denominated total for KPI math chain (grossProfit, performance%).
+	 * Falls back to current account balance when the map is empty.
+	 */
+	totalDepositedFDUSD: number;
+}
+
+/**
+ * @deprecated Replaced by `CumulativeDeposits`. The single-operation shape is
+ * kept as a type alias only for components that still consume the legacy
+ * `initialBalance` field (e.g. EquityChart reference line, WithdrawModal).
+ * Will be removed once those components are migrated to the new contract.
+ */
+export interface InitialOperation {
+	type: "deposit" | "transfer";
+	coin: string;
+	amount: number;
+	time: number; // Unix timestamp (ms)
 }
 
 export interface DashboardSummaryResponse {

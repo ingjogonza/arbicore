@@ -124,18 +124,25 @@ export interface DashboardBotStatus {
 }
 
 /**
- * Earliest account operation (deposit or transfer), representing how the
- * account was initially funded. `null` when no operations are available.
+ * Per-coin cumulative deposits. Keys are coin symbols (e.g. "FDUSD", "BTC"),
+ * values are total amounts in that coin. Empty when no deposits detected.
  */
-export interface InitialOperation {
+export type CumulativeDeposits = Record<string, number>;
+
+/**
+ * @deprecated Replaced by `CumulativeDeposits`. The single-operation shape is
+ * no longer used by the dashboard. Kept as a type alias only for any external
+ * consumers that have not yet migrated; will be removed in a future release.
+ */
+export type InitialOperation = {
 	type: "deposit" | "transfer";
 	coin: string;
 	amount: number;
-	time: number; // Unix timestamp (ms)
-}
+	time: number;
+};
 
 /**
- * @deprecated Replaced by `InitialOperation`. Kept temporarily for
- * incremental migration until the route schema and consumers update.
+ * @deprecated Replaced by `CumulativeDeposits`. See `InitialOperation` for
+ * the migration note.
  */
 export type InitialBalance = InitialOperation | null;

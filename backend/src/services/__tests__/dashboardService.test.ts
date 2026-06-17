@@ -9,7 +9,7 @@ import {
 	mapTrades,
 	mapEquityHistory,
 	buildBotStatus,
-	computeInitialBalance,
+	computeTotalDeposited,
 } from "../dashboardService";
 import type {
 	BinanceAccountResponse,
@@ -267,16 +267,17 @@ describe("dashboardService — pure functions", () => {
 		});
 	});
 
-	describe("computeInitialBalance — earliest deposit/transfer detection", () => {
+	describe("computeTotalDeposited — per-coin cumulative aggregation", () => {
 		const deposit = (
 			coin: string,
 			amount: string,
 			insertTime: number,
+			status: number = 1,
 		): BinanceDeposit => ({
 			amount,
 			coin,
 			network: "BSC",
-			status: 1,
+			status,
 			address: "addr",
 			addressTag: "",
 			txId: `tx-${insertTime}`,
@@ -297,94 +298,62 @@ describe("dashboardService — pure functions", () => {
 			timestamp,
 		});
 
-		it("returns the earliest deposit when its timestamp precedes all transfers", () => {
+		it("returns empty object when both deposits and transfers are empty", () => {
+			const result = computeTotalDeposited([], []);
+			assert.deepStrictEqual(result, {});
+		});
+
+		it("returns empty object when deposits undefined and transfers empty", () => {
+			const result = computeTotalDeposited([], undefined);
+			assert.deepStrictEqual(result, {});
+		});
+
+		it("aggregates multiple FDUSD deposits into a single coin key", () => {
 			const deposits: BinanceDeposit[] = [
-				deposit("FDUSD", "1000.00", 1_700_000_000_000),
-				deposit("BTC", "0.5", 1_710_000_000_000),
+				deposit("FDUSD", "1.00", 1_700_000_000_000),
+				deposit("FDUSD", "9.14", 1_710_000_000_000),
+			];
+			const result = computeTotalDeposited(deposits, []);
+			assert.deepStrictEqual(result, { FDUSD: 10.14 });
+		});
+
+		it("aggregates deposits and transfers across multiple coins", () => {
+			const deposits: BinanceDeposit[] = [
+				deposit("FDUSD", "5.00", 1_700_000_000_000),
+				deposit("BTC", "0.5", 1_700_000_001_000),
 			];
 			const transfers: BinanceTransfer[] = [
-				transfer("FDUSD", "500.00", 1_705_000_000_000),
+				transfer("USDT", "100.00", 1_700_000_002_000),
 			];
-
-			const result = computeInitialBalance(deposits, transfers);
-
-			assert.deepStrictEqual(result, {
-				type: "deposit",
-				coin: "FDUSD",
-				amount: 1000,
-				time: 1_700_000_000_000,
-			});
+			const result = computeTotalDeposited(deposits, transfers);
+			assert.deepStrictEqual(result, { FDUSD: 5, BTC: 0.5, USDT: 100 });
 		});
 
-		it("returns the earliest transfer when its timestamp precedes all deposits", () => {
+		it("includes both status=1 and status=6 deposits", () => {
 			const deposits: BinanceDeposit[] = [
-				deposit("FDUSD", "1000.00", 1_710_000_000_000),
+				deposit("FDUSD", "5.00", 1_700_000_000_000, 1),
+				deposit("FDUSD", "5.14", 1_710_000_000_000, 6),
 			];
-			const transfers: BinanceTransfer[] = [
-				transfer("USDT", "250.00", 1_700_000_000_000),
-				transfer("FDUSD", "100.00", 1_705_000_000_000),
-			];
-
-			const result = computeInitialBalance(deposits, transfers);
-
-			assert.deepStrictEqual(result, {
-				type: "transfer",
-				coin: "USDT",
-				amount: 250,
-				time: 1_700_000_000_000,
-			});
+			const result = computeTotalDeposited(deposits, []);
+			assert.deepStrictEqual(result, { FDUSD: 10.14 });
 		});
 
-		it("returns the earliest deposit when no transfers exist", () => {
+		it("excludes pending deposits (status=0)", () => {
 			const deposits: BinanceDeposit[] = [
-				deposit("FDUSD", "1000.00", 1_710_000_000_000),
-				deposit("BTC", "0.1", 1_700_000_000_000),
+				deposit("FDUSD", "5.00", 1_700_000_000_000, 1),
+				deposit("FDUSD", "10.00", 1_700_000_001_000, 0),
 			];
-
-			const result = computeInitialBalance(deposits, []);
-
-			assert.deepStrictEqual(result, {
-				type: "deposit",
-				coin: "BTC",
-				amount: 0.1,
-				time: 1_700_000_000_000,
-			});
+			const result = computeTotalDeposited(deposits, []);
+			assert.deepStrictEqual(result, { FDUSD: 5 });
 		});
 
-		it("returns the earliest transfer when no deposits exist", () => {
-			const transfers: BinanceTransfer[] = [
-				transfer("FDUSD", "750.00", 1_700_000_000_000),
-				transfer("USDT", "100.00", 1_710_000_000_000),
-			];
-
-			const result = computeInitialBalance([], transfers);
-
-			assert.deepStrictEqual(result, {
-				type: "transfer",
-				coin: "FDUSD",
-				amount: 750,
-				time: 1_700_000_000_000,
-			});
-		});
-
-		it("returns null when both deposits and transfers are empty", () => {
-			const result = computeInitialBalance([], []);
-			assert.strictEqual(result, null);
-		});
-
-		it("falls back to deposits when transfers parameter is undefined (transfer API unavailable)", () => {
+		it("ignores deposits with non-numeric amounts", () => {
 			const deposits: BinanceDeposit[] = [
-				deposit("FDUSD", "500.00", 1_700_000_000_000),
+				deposit("FDUSD", "5.00", 1_700_000_000_000),
+				deposit("BTC", "not-a-number", 1_700_000_001_000),
 			];
-
-			const result = computeInitialBalance(deposits, undefined);
-
-			assert.deepStrictEqual(result, {
-				type: "deposit",
-				coin: "FDUSD",
-				amount: 500,
-				time: 1_700_000_000_000,
-			});
+			const result = computeTotalDeposited(deposits, []);
+			assert.deepStrictEqual(result, { FDUSD: 5 });
 		});
 	});
 });

@@ -4,10 +4,11 @@
 
 import { Wallet, TrendingUp, BarChart3, Percent, Receipt } from "lucide-react";
 import { KPICard } from "../ui/KPICard";
-import type { InitialOperation } from "../../types";
+import type { CumulativeDeposits } from "../../types";
 
 interface KPIGridProps {
-	initialOperation: InitialOperation | null;
+	cumulativeDeposits: CumulativeDeposits;
+	totalDepositedFDUSD: number;
 	currentBalance: number;
 	grossProfit: number;
 	performance: string;
@@ -20,27 +21,43 @@ const fmt = (v: number): string =>
 		maximumFractionDigits: 2,
 	});
 
-const INITIAL_OPERATION_LABELS: Record<InitialOperation["type"], string> = {
-	deposit: "Depósito Inicial",
-	transfer: "Transferencia Inicial",
-};
+const TOTAL_DEPOSITED_LABEL = "Total Deposited";
+const FALLBACK_DEPOSITS_LABEL = "Sin depósitos detectados";
 
-const FALLBACK_INITIAL_LABEL = "Sin operación inicial";
-
-const formatInitialOperation = (
-	op: InitialOperation | null,
-): { label: string; value: string } => {
-	if (!op) {
-		return { label: FALLBACK_INITIAL_LABEL, value: "" };
+/**
+ * Renders the Total Deposited card:
+ * - Primary value: totalDepositedFDUSD formatted as "X.XX FDUSD".
+ * - Secondary line: comma-separated list of non-FDUSD coins from the map.
+ * - Empty case: shows fallback label, no value.
+ */
+const formatTotalDeposited = (
+	map: CumulativeDeposits,
+	totalFDUSD: number,
+): { label: string; value: string; secondary?: string } => {
+	const entries = Object.entries(map);
+	if (entries.length === 0) {
+		return {
+			label: FALLBACK_DEPOSITS_LABEL,
+			value: `${fmt(totalFDUSD)} FDUSD`,
+		};
 	}
+
+	const otherCoins = entries
+		.filter(([coin]) => coin !== "FDUSD")
+		.sort(([a], [b]) => a.localeCompare(b))
+		.map(([coin, amount]) => `${fmt(amount)} ${coin}`)
+		.join(", ");
+
 	return {
-		label: INITIAL_OPERATION_LABELS[op.type],
-		value: `${op.amount} ${op.coin}`,
+		label: TOTAL_DEPOSITED_LABEL,
+		value: `${fmt(totalFDUSD)} FDUSD`,
+		secondary: otherCoins || undefined,
 	};
 };
 
 export const KPIGrid: React.FC<KPIGridProps> = ({
-	initialOperation,
+	cumulativeDeposits,
+	totalDepositedFDUSD,
 	currentBalance,
 	grossProfit,
 	performance,
@@ -48,13 +65,14 @@ export const KPIGrid: React.FC<KPIGridProps> = ({
 }) => {
 	const isPositive = grossProfit >= 0;
 	const profitSign = isPositive ? "+" : "-";
-	const initial = formatInitialOperation(initialOperation);
+	const deposits = formatTotalDeposited(cumulativeDeposits, totalDepositedFDUSD);
 
 	return (
 		<div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
 			<KPICard
-				label={initial.label}
-				value={initial.value}
+				label={deposits.label}
+				value={deposits.value}
+				subtitle={deposits.secondary}
 				icon={<Wallet size={20} />}
 			/>
 			<KPICard
