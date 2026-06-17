@@ -39,6 +39,23 @@ project:
     strict_tdd: true
     total_test_count: 43
     notes:
-      - CI pipeline not configured
+      - CI pipeline configured (GitHub Actions — typecheck + test on push/PR to main/develop)
       - No ESLint or Prettier detected
       - Python robot has no tests yet
+
+sdd_init:
+  timestamp: "2026-06-17T00:00:00Z"
+  mode: hybrid
+  agent: deepseek-v4-flash
+  remote_ok: false
+  detected_stack:
+    loc_estimate: "~15k-25k frontend, ~10k-15k backend"
+    total_test_files: 43
+    frontend_tests: 29
+    backend_tests: 14
+    robot_tests: 0
+    ci_pipeline: active (GitHub Actions)
+    linter: none detected
+    formatter: none detected
+    type_checker: TypeScript (tsc --noEmit)
+    deployment: Docker + PM2 + Raspberry Pi

@@ -9,6 +9,7 @@ import {
 	getAccountSnapshot,
 	getDepositHistory,
 	getTransferHistory,
+	getSubAccountTransferHistory,
 } from "./binanceService";
 import { cacheGet, cacheSet } from "./cacheService";
 import { NotFoundError } from "../utils/errors";
@@ -24,6 +25,14 @@ import type {
 	BinanceDeposit,
 	BinanceTransfer,
 } from "../types/binance";
+
+/** Transfer sources to query in parallel for initial-operation detection. */
+const TRANSFER_SOURCES = [
+	{ name: "MAIN_UMFUTURE", call: (k: string, s: string) => getTransferHistory(k, s, "MAIN_UMFUTURE") },
+	{ name: "MAIN_FUNDING", call: (k: string, s: string) => getTransferHistory(k, s, "MAIN_FUNDING") },
+	{ name: "MAIN_C2C", call: (k: string, s: string) => getTransferHistory(k, s, "MAIN_C2C") },
+	{ name: "sub-account", call: (k: string, s: string) => getSubAccountTransferHistory(k, s) },
+] as const;
 
 export interface DashboardError {
 	source: "balances" | "trades" | "deposits" | "transfers" | "equity";
@@ -229,19 +238,19 @@ export async function getDashboardSummary(
 		throw err; // Unexpected error — let error handler catch
 	}
 
-	// Step 2: Parallel Binance calls
+	// Step 2: Parallel Binance calls (non-transfer sources + transfer fan-out)
 	const [
 		accountResult,
 		tradesResult,
 		snapshotResult,
 		depositResult,
-		transferResult,
+		...transferResults
 	] = await Promise.allSettled([
 		getAccount(apiKey, secretKey),
 		getMyTrades(apiKey, secretKey, "BTCFDUSD", 20),
 		getAccountSnapshot(apiKey, secretKey),
 		getDepositHistory(apiKey, secretKey),
-		getTransferHistory(apiKey, secretKey),
+		...TRANSFER_SOURCES.map((src) => src.call(apiKey, secretKey)),
 	]);
 
 	// Step 3: Map balances
@@ -283,8 +292,8 @@ export async function getDashboardSummary(
 	}
 
 	// Step 6: Compute earliest funding operation from deposits + transfers.
-	// Transfers degrade gracefully: if the endpoint fails (e.g. missing
-	// permission), we log a warning and fall back to deposits only.
+	// Transfer sources degrade gracefully: if any source fails (e.g.
+	// missing permission), we log a warning and continue with other sources.
 	const deposits: BinanceDeposit[] =
 		depositResult.status === "fulfilled" ? depositResult.value : [];
 
@@ -298,20 +307,21 @@ export async function getDashboardSummary(
 		}
 	}
 
-	let transfers: BinanceTransfer[] | undefined;
-	if (transferResult.status === "fulfilled") {
-		transfers = transferResult.value;
-	} else {
-		transfers = undefined;
-		const msg = transferResult.reason?.message || "";
-		console.warn(
-			`[Dashboard] Transfer history unavailable, falling back to deposits only: ${msg}`,
-		);
+	const allTransfers: BinanceTransfer[] = [];
+	for (let i = 0; i < transferResults.length; i++) {
+		const result = transferResults[i];
+		if (result.status === "fulfilled") {
+			allTransfers.push(...result.value);
+		} else {
+			console.warn(
+				`[Dashboard] ${TRANSFER_SOURCES[i].name} transfer source failed: ${result.reason?.message || "unknown"}`,
+			);
+		}
 	}
 
 	const initialBalance: InitialOperation | null = computeInitialBalance(
 		deposits,
-		transfers,
+		allTransfers,
 	);
 
 	// Step 7: Compute bot status
