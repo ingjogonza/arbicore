@@ -77,3 +77,6 @@ docs/
 
 # TLS / mTLS certificates (dev-generated, never commit to git)
 backend/certs/
+
+# Accidental literal "~/ " directory (skill installs that used a non-expanded path)
+~/
