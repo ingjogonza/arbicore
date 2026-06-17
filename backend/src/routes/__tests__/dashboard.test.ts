@@ -194,7 +194,7 @@ describe("Dashboard Routes", () => {
 		assert.ok(body.data, "should have data");
 
 		// cumulativeDeposits is now a Record<string, number> (per-coin map).
-		// totalDepositedFDUSD is the derived FDUSD total for KPI math.
+		// totalStablecoinDepositedUSD is the derived stablecoin total for KPI math.
 		assert.ok(body.data, "should have data");
 		assert.strictEqual(
 			typeof body.data.cumulativeDeposits,
@@ -202,9 +202,9 @@ describe("Dashboard Routes", () => {
 			"cumulativeDeposits must be a Record<string, number>",
 		);
 		assert.strictEqual(
-			typeof body.data.totalDepositedFDUSD,
+			typeof body.data.totalStablecoinDepositedUSD,
 			"number",
-			"totalDepositedFDUSD must be a number",
+			"totalStablecoinDepositedUSD must be a number",
 		);
 	});
 
@@ -320,7 +320,8 @@ describe("Dashboard Routes", () => {
 				FDUSD: 1000,
 				USDT: 500,
 			});
-			assert.strictEqual(body.data.totalDepositedFDUSD, 1000);
+			// Stablecoin total = FDUSD 1000 + USDT 500 = 1500.
+			assert.strictEqual(body.data.totalStablecoinDepositedUSD, 1500);
 		});
 
 		it("returns the cumulative map with transfer-only sources when transfer precedes deposit", async () => {
@@ -402,7 +403,8 @@ describe("Dashboard Routes", () => {
 				FDUSD: 1000,
 				USDT: 250,
 			});
-			assert.strictEqual(body.data.totalDepositedFDUSD, 1000);
+			// Stablecoin total = FDUSD 1000 + USDT 250 = 1250.
+			assert.strictEqual(body.data.totalStablecoinDepositedUSD, 1250);
 		});
 
 		it("falls back to deposit-only aggregation when transfer API fails (graceful degradation, no error propagation)", async () => {
@@ -473,7 +475,7 @@ describe("Dashboard Routes", () => {
 			assert.deepStrictEqual(body.data.cumulativeDeposits, {
 				FDUSD: 750,
 			});
-			assert.strictEqual(body.data.totalDepositedFDUSD, 750);
+			assert.strictEqual(body.data.totalStablecoinDepositedUSD, 750);
 
 			// Graceful degradation: transfer failure SHALL NOT propagate to errors[].
 			const errs = (body.errors ?? []) as Array<{ source: string }>;
@@ -554,7 +556,7 @@ describe("Dashboard Routes", () => {
 				FDUSD: 10.14119044,
 			});
 			assert.strictEqual(
-				body.data.totalDepositedFDUSD,
+				body.data.totalStablecoinDepositedUSD,
 				10.14119044,
 			);
 
@@ -641,8 +643,8 @@ describe("Dashboard Routes", () => {
 			assert.deepStrictEqual(body.data.cumulativeDeposits, {
 				USDT: 250,
 			});
-			// No FDUSD in the map, fallback to current balance (0 in this mocked scenario).
-			assert.strictEqual(body.data.totalDepositedFDUSD, 0);
+			// Stablecoin total includes USDT 250; no current balance in this mocked scenario.
+			assert.strictEqual(body.data.totalStablecoinDepositedUSD, 250);
 
 			// No transfers error in public errors per partial-failure spec.
 			const errs = (body.errors ?? []) as Array<{ source: string }>;

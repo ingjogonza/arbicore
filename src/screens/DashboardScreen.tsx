@@ -33,35 +33,38 @@ export const DashboardScreen: React.FC = () => {
 		return parseFloat(fdusd.free);
 	}, [data?.balances]);
 
-	// Cumulative deposits (per-coin map) and derived FDUSD total from the API.
+	// Cumulative deposits (per-coin map) and derived stablecoin total from the API.
 	const cumulativeDeposits = data?.cumulativeDeposits ?? {};
-	const totalDepositedFDUSD = data?.totalDepositedFDUSD ?? 0;
+	const totalStablecoinDepositedUSD = data?.totalStablecoinDepositedUSD ?? 0;
 
 	// Synthesize a legacy `initialOperation` shape for components that have not
 	// yet migrated to the cumulative-deposits contract (EquityChart reference
 	// line, WithdrawModal fee/profit preview). This is a derived value, not a
-	// separate API call, and uses `totalDepositedFDUSD` as the canonical
-	// baseline.
+	// separate API call, and uses `totalStablecoinDepositedUSD` as the
+	// canonical baseline.
 	const initialOperation: InitialOperation | null = useMemo(() => {
-		if (totalDepositedFDUSD > 0) {
+		if (totalStablecoinDepositedUSD > 0) {
 			return {
 				type: "deposit",
 				coin: "FDUSD",
-				amount: totalDepositedFDUSD,
+				amount: totalStablecoinDepositedUSD,
 				time: Date.now(),
 			};
 		}
 		return null;
-	}, [totalDepositedFDUSD]);
+	}, [totalStablecoinDepositedUSD]);
 
 	// Numeric initial amount used for derived KPI math; falls back to the
 	// current balance so derived values stay sane when no operation is known.
 	const initialAmount = useMemo(() => {
-		if (totalDepositedFDUSD > 0 && Number.isFinite(totalDepositedFDUSD)) {
-			return totalDepositedFDUSD;
+		if (
+			totalStablecoinDepositedUSD > 0 &&
+			Number.isFinite(totalStablecoinDepositedUSD)
+		) {
+			return totalStablecoinDepositedUSD;
 		}
 		return currentBalance;
-	}, [totalDepositedFDUSD, currentBalance]);
+	}, [totalStablecoinDepositedUSD, currentBalance]);
 
 	// Derived KPI values (guard against NaN)
 	const grossProfit = Number.isFinite(initialAmount)
@@ -135,7 +138,7 @@ export const DashboardScreen: React.FC = () => {
 				{data && (
 					<KPIGrid
 						cumulativeDeposits={cumulativeDeposits}
-						totalDepositedFDUSD={totalDepositedFDUSD}
+						totalStablecoinDepositedUSD={totalStablecoinDepositedUSD}
 						currentBalance={currentBalance}
 						grossProfit={grossProfit}
 						performance={performance}

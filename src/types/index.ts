@@ -162,6 +162,10 @@ export interface DashboardBotStatus {
  */
 export type CumulativeDeposits = Record<string, number>;
 
+/** Coins treated as 1:1 with USD for the "seed capital" total. */
+export const STABLECOINS = ["FDUSD", "USDT", "USDC"] as const;
+export type Stablecoin = (typeof STABLECOINS)[number];
+
 export interface DashboardSummaryData {
 	balances: DashboardBalance[] | null;
 	trades: DashboardTrade[] | null;
@@ -174,10 +178,11 @@ export interface DashboardSummaryData {
 	 */
 	cumulativeDeposits: CumulativeDeposits;
 	/**
-	 * FDUSD-denominated total for KPI math chain (grossProfit, performance%).
-	 * Falls back to current account balance when the map is empty.
+	 * Sum of stablecoin deposits (USDT + FDUSD + USDC). Represents the user's
+	 * seed capital in USD-equivalent terms. Falls back to current account
+	 * balance when no stablecoin deposits are detected.
 	 */
-	totalDepositedFDUSD: number;
+	totalStablecoinDepositedUSD: number;
 }
 
 /**

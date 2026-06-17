@@ -49,7 +49,7 @@ const mockDashboardData = {
 		strategy: "Conservative Spot Trading",
 	},
 	cumulativeDeposits: { FDUSD: 1000 },
-	totalDepositedFDUSD: 1000,
+	totalStablecoinDepositedUSD: 1000,
 };
 
 beforeEach(() => {
@@ -288,7 +288,7 @@ describe("useDashboard", () => {
 			});
 
 			expect(result.current.data?.cumulativeDeposits).toEqual({ FDUSD: 1000 });
-			expect(result.current.data?.totalDepositedFDUSD).toBe(1000);
+			expect(result.current.data?.totalStablecoinDepositedUSD).toBe(1000);
 		});
 
 		test("propagates a map with multiple coins", async () => {
@@ -300,7 +300,7 @@ describe("useDashboard", () => {
 						data: {
 							...mockDashboardData,
 							cumulativeDeposits: { FDUSD: 1000, BTC: 0.5, USDT: 250 },
-							totalDepositedFDUSD: 1000,
+							totalStablecoinDepositedUSD: 1250,
 						},
 					}),
 			}) as any;
@@ -316,6 +316,8 @@ describe("useDashboard", () => {
 				BTC: 0.5,
 				USDT: 250,
 			});
+			// Stablecoin total: 1000 FDUSD + 250 USDT = 1250 (BTC excluded).
+			expect(result.current.data?.totalStablecoinDepositedUSD).toBe(1250);
 		});
 
 		test("propagates an empty cumulativeDeposits map", async () => {
@@ -327,7 +329,7 @@ describe("useDashboard", () => {
 						data: {
 							...mockDashboardData,
 							cumulativeDeposits: {},
-							totalDepositedFDUSD: 25000,
+							totalStablecoinDepositedUSD: 25000,
 						},
 					}),
 			}) as any;
@@ -339,7 +341,7 @@ describe("useDashboard", () => {
 			});
 
 			expect(result.current.data?.cumulativeDeposits).toEqual({});
-			expect(result.current.data?.totalDepositedFDUSD).toBe(25000);
+			expect(result.current.data?.totalStablecoinDepositedUSD).toBe(25000);
 		});
 	});
 });
