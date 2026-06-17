@@ -43,6 +43,7 @@ type HandlerMap = {
 	snapshot?: Handler;
 	deposit?: Handler;
 	transfer?: Handler;
+	subAccountTransfer?: Handler;
 };
 
 function installBinanceMock(handlers: HandlerMap): () => void {
@@ -60,6 +61,8 @@ function installBinanceMock(handlers: HandlerMap): () => void {
 			handler = handlers.snapshot;
 		else if (urlStr.includes("/sapi/v1/capital/deposit/hisrec"))
 			handler = handlers.deposit;
+		else if (urlStr.includes("/sapi/v1/sub-account/transfer/subUserHistory"))
+			handler = handlers.subAccountTransfer;
 		else if (urlStr.includes("/sapi/v1/asset/transfer"))
 			handler = handlers.transfer;
 
@@ -463,6 +466,170 @@ describe("Dashboard Routes", () => {
 				hasTransferError,
 				false,
 				"transfer failure must NOT propagate as a public error per spec 'Fallback on Partial API Failure'",
+			);
+		});
+
+		it("detects FDUSD internal transfer via sub-account when universal-transfer sources fail (Partial transfer source failure scenario)", async () => {
+			restoreHttps = installBinanceMock({
+				account: () => ({
+					status: 200,
+					body: {
+						makerCommission: 0,
+						takerCommission: 0,
+						buyerCommission: 0,
+						sellerCommission: 0,
+						canTrade: true,
+						canWithdraw: true,
+						canDeposit: true,
+						updateTime: 1_700_000_000_000,
+						accountType: "SPOT",
+						balances: [],
+						permissions: ["SPOT"],
+					},
+				}),
+				myTrades: () => ({ status: 200, body: [] }),
+				snapshot: () => ({
+					status: 200,
+					body: { code: 200, msg: "", snapshotVos: [] },
+				}),
+				deposit: () => ({
+					status: 200,
+					body: [],
+				}),
+				// All universal-transfer endpoints return 401 (no permission).
+				transfer: () => ({
+					status: 401,
+					body: {
+						code: -2015,
+						msg: "Invalid API-key, IP, or permissions for action.",
+					},
+				}),
+				// Sub-account endpoint returns the FDUSD internal transfer.
+				subAccountTransfer: () => ({
+					status: 200,
+					body: {
+						total: 1,
+						rows: [
+							{
+								asset: "FDUSD",
+								amount: "10.14119044",
+								type: "FUNDING_MAIN",
+								status: "CONFIRMED",
+								tranId: 8001,
+								timestamp: 1_700_000_000_000,
+							},
+						],
+					},
+				}),
+			});
+
+			const res = await app.inject({
+				method: "GET",
+				url: "/api/dashboard/summary",
+				headers: { authorization: `Bearer ${authToken}` },
+			});
+
+			assert.strictEqual(res.statusCode, 200);
+			const body = JSON.parse(res.body);
+			assert.strictEqual(body.success, true);
+
+			// The FDUSD sub-account transfer is the only funding operation.
+			assert.deepStrictEqual(body.data.initialBalance, {
+				type: "transfer",
+				coin: "FDUSD",
+				amount: 10.14119044,
+				time: 1_700_000_000_000,
+			});
+
+			// No transfers error in public errors per partial-failure spec.
+			const errs = (body.errors ?? []) as Array<{ source: string }>;
+			const hasTransferError = errs.some((e) => e.source === "transfers");
+			assert.strictEqual(
+				hasTransferError,
+				false,
+				"transfer source failure must NOT propagate as a public error",
+			);
+		});
+
+		it("falls back to universal transfer when sub-account source fails (Partial transfer source failure scenario)", async () => {
+			restoreHttps = installBinanceMock({
+				account: () => ({
+					status: 200,
+					body: {
+						makerCommission: 0,
+						takerCommission: 0,
+						buyerCommission: 0,
+						sellerCommission: 0,
+						canTrade: true,
+						canWithdraw: true,
+						canDeposit: true,
+						updateTime: 1_700_000_000_000,
+						accountType: "SPOT",
+						balances: [],
+						permissions: ["SPOT"],
+					},
+				}),
+				myTrades: () => ({ status: 200, body: [] }),
+				snapshot: () => ({
+					status: 200,
+					body: { code: 200, msg: "", snapshotVos: [] },
+				}),
+				deposit: () => ({
+					status: 200,
+					body: [],
+				}),
+				// Universal-transfer endpoint returns USDT transfer.
+				transfer: () => ({
+					status: 200,
+					body: {
+						total: 1,
+						rows: [
+							{
+								asset: "USDT",
+								amount: "250.00",
+								type: "MAIN_UMFUTURE",
+								status: "CONFIRMED",
+								tranId: 9001,
+								timestamp: 1_700_000_000_000,
+							},
+						],
+					},
+				}),
+				// Sub-account endpoint returns 401 (no permission).
+				subAccountTransfer: () => ({
+					status: 401,
+					body: {
+						code: -2015,
+						msg: "Invalid API-key, IP, or permissions for action.",
+					},
+				}),
+			});
+
+			const res = await app.inject({
+				method: "GET",
+				url: "/api/dashboard/summary",
+				headers: { authorization: `Bearer ${authToken}` },
+			});
+
+			assert.strictEqual(res.statusCode, 200);
+			const body = JSON.parse(res.body);
+			assert.strictEqual(body.success, true);
+
+			// The USDT universal transfer is the earliest (and only) funding operation.
+			assert.deepStrictEqual(body.data.initialBalance, {
+				type: "transfer",
+				coin: "USDT",
+				amount: 250,
+				time: 1_700_000_000_000,
+			});
+
+			// No transfers error in public errors per partial-failure spec.
+			const errs = (body.errors ?? []) as Array<{ source: string }>;
+			const hasTransferError = errs.some((e) => e.source === "transfers");
+			assert.strictEqual(
+				hasTransferError,
+				false,
+				"transfer source failure must NOT propagate as a public error",
 			);
 		});
 	});

@@ -203,3 +203,24 @@ export async function getTransferHistory(
 	);
 	return response?.rows ?? [];
 }
+
+/**
+ * GET /sapi/v1/sub-account/transfer/subUserHistory — returns sub-account
+ * internal transfer history. FDUSD internal/sub-account transfers populate
+ * this endpoint, not the universal-transfer endpoint with MAIN_UMFUTURE.
+ *
+ * Requires "Sub-account Transfer" API key permission. If missing, the caller
+ * should degrade gracefully (the dashboard fan-out handles this).
+ */
+export async function getSubAccountTransferHistory(
+	apiKey: string,
+	secretKey: string,
+): Promise<BinanceTransfer[]> {
+	const response = await binanceGet<BinanceTransferResponse>(
+		"/sapi/v1/sub-account/transfer/subUserHistory",
+		{},
+		apiKey,
+		secretKey,
+	);
+	return response?.rows ?? [];
+}

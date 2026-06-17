@@ -74,6 +74,9 @@ export interface BinanceDeposit {
 	confirmTimes: string;
 }
 
+/** Union of universal transfer type values queried for initial-operation detection. */
+export type BinanceTransferType = "MAIN_UMFUTURE" | "MAIN_FUNDING" | "MAIN_C2C";
+
 /**
  * Internal/universal transfer entry from GET /sapi/v1/asset/transfer.
  * Binance returns transfers wrapped under `rows` with a `total` count;

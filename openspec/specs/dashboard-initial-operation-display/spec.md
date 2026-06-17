@@ -24,6 +24,13 @@ The KPI Grid MUST display the initial operation's type, coin, and amount. The la
 - THEN it SHALL display the label "Transferencia Inicial"
 - AND it SHALL display the value "1000 USDT"
 
+#### Scenario: FDUSD internal transfer displayed
+
+- GIVEN the initial operation has type `"transfer"`, coin `"FDUSD"`, and amount `10.14119044`
+- WHEN the KPI Grid renders
+- THEN it SHALL display the label "Transferencia Inicial"
+- AND it SHALL display the value "10.14119044 FDUSD"
+
 #### Scenario: No initial operation
 
 - GIVEN the initial operation is `null`

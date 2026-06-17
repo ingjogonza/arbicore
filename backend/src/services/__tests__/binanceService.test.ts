@@ -14,6 +14,7 @@ import {
 	getAccountSnapshot,
 	getDepositHistory,
 	getTransferHistory,
+	getSubAccountTransferHistory,
 } from "../binanceService";
 
 /**
@@ -390,6 +391,76 @@ describe("binanceService", () => {
 
 			await assert.rejects(
 				() => getTransferHistory("bad-key", "bad-secret"),
+				/Binance API 401/,
+			);
+		});
+	});
+
+	describe("getSubAccountTransferHistory", () => {
+		it("returns sub-account transfer rows with FDUSD internal transfer (Internal FDUSD transfer detected scenario)", async () => {
+			const mockSubAccountResponse = {
+				total: 1,
+				rows: [
+					{
+						asset: "FDUSD",
+						amount: "10.14119044",
+						type: "FUNDING_MAIN",
+						status: "CONFIRMED",
+						tranId: 8001,
+						timestamp: 1_700_000_000_000,
+					},
+				],
+			};
+
+			https.get = ((urlOrOpts: unknown, callback?: (res: unknown) => void) => {
+				const urlStr =
+					typeof urlOrOpts === "string" ? urlOrOpts : JSON.stringify(urlOrOpts);
+
+				assert.ok(
+					urlStr.includes("/sapi/v1/sub-account/transfer/subUserHistory"),
+					`URL should include /sapi/v1/sub-account/transfer/subUserHistory, got ${urlStr}`,
+				);
+				assert.ok(
+					urlStr.includes("timestamp="),
+					"URL should include timestamp",
+				);
+				assert.ok(
+					urlStr.includes("signature="),
+					"URL should include signature",
+				);
+
+				if (callback) callback(createMockResponse(200, mockSubAccountResponse));
+				return createMockResponse(200, mockSubAccountResponse) as any;
+			}) as typeof https.get;
+
+			const result = await getSubAccountTransferHistory(
+				"test-api-key",
+				"test-secret-key",
+			);
+
+			assert.ok(Array.isArray(result), "result must be the rows array");
+			assert.strictEqual(
+				result.length,
+				1,
+				"should unwrap rows from the Binance wrapper",
+			);
+			assert.strictEqual(result[0].asset, "FDUSD");
+			assert.strictEqual(result[0].amount, "10.14119044");
+			assert.strictEqual(result[0].timestamp, 1_700_000_000_000);
+		});
+
+		it("rejects when the sub-account endpoint returns 401 (Transfer API unavailable scenario)", async () => {
+			https.get = ((_urlOrOpts: unknown, callback?: (res: unknown) => void) => {
+				const errorBody = JSON.stringify({
+					code: -2015,
+					msg: "Invalid API-key, IP, or permissions for action.",
+				});
+				if (callback) callback(createMockResponse(401, errorBody));
+				return createMockResponse(401, errorBody) as any;
+			}) as typeof https.get;
+
+			await assert.rejects(
+				() => getSubAccountTransferHistory("bad-key", "bad-secret"),
 				/Binance API 401/,
 			);
 		});
