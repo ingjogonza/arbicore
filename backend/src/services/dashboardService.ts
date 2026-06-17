@@ -13,6 +13,9 @@ import {
 } from "./binanceService";
 import { cacheGet, cacheSet } from "./cacheService";
 import { NotFoundError } from "../utils/errors";
+import {
+	STABLECOINS,
+} from "../types/binance";
 import type {
 	DashboardBalance,
 	DashboardTrade,
@@ -46,8 +49,12 @@ export interface DashboardSummaryData {
 	botStatus: DashboardBotStatus;
 	/** Per-coin cumulative deposits. Empty when no deposits detected. */
 	cumulativeDeposits: CumulativeDeposits;
-	/** FDUSD-denominated total. Falls back to current balance when map is empty. */
-	totalDepositedFDUSD: number;
+	/**
+	 * Sum of stablecoin deposits (USDT + FDUSD + USDC). Represents the user's
+	 * seed capital in USD-equivalent terms. Falls back to current account
+	 * balance when no stablecoin deposits are detected.
+	 */
+	totalStablecoinDepositedUSD: number;
 }
 
 export interface DashboardSummaryResult {
@@ -202,7 +209,7 @@ export async function getDashboardSummary(
 					equityHistory: null,
 					botStatus: buildBotStatus(false),
 					cumulativeDeposits: {},
-					totalDepositedFDUSD: 0,
+					totalStablecoinDepositedUSD: 0,
 				},
 				errors: [
 					{
@@ -303,19 +310,23 @@ export async function getDashboardSummary(
 		allTransfers,
 	);
 
-	// Derive totalDepositedFDUSD for KPI math chain. Falls back to current
-	// account balance when the map is empty, preserving the existing KPI math
-	// (grossProfit, performance%) which depends on a positive baseline.
+	// Derive totalStablecoinDepositedUSD for KPI math chain. Sums USDT + FDUSD
+	// + USDC (treated as 1:1 with USD). Falls back to current account balance
+	// when no stablecoin deposits are detected, preserving the existing KPI
+	// math (grossProfit, performance%) which depends on a positive baseline.
+	const stablecoinSum = STABLECOINS.reduce(
+		(sum, coin) => sum + (cumulativeDeposits[coin] ?? 0),
+		0,
+	);
+
 	const fallbackBalance =
 		balances?.reduce((sum, b) => {
 			const v = parseFloat(b.free) + parseFloat(b.locked);
 			return sum + (Number.isNaN(v) ? 0 : v);
 		}, 0) ?? 0;
 
-	const totalDepositedFDUSD =
-		cumulativeDeposits.FDUSD !== undefined && cumulativeDeposits.FDUSD > 0
-			? cumulativeDeposits.FDUSD
-			: fallbackBalance;
+	const totalStablecoinDepositedUSD =
+		stablecoinSum > 0 ? stablecoinSum : fallbackBalance;
 
 	// Step 7: Compute bot status
 	const botStatus = buildBotStatus(true); // Keys exist → bot is considered active
@@ -327,7 +338,7 @@ export async function getDashboardSummary(
 			equityHistory,
 			botStatus,
 			cumulativeDeposits,
-			totalDepositedFDUSD,
+			totalStablecoinDepositedUSD,
 		},
 		errors,
 	};

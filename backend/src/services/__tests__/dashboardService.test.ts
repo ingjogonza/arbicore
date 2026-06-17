@@ -355,5 +355,24 @@ describe("dashboardService — pure functions", () => {
 			const result = computeTotalDeposited(deposits, []);
 			assert.deepStrictEqual(result, { FDUSD: 5 });
 		});
+
+		it("returns the full per-coin map including non-stablecoins (BTC, ETH)", () => {
+			// The map is a faithful record of all deposits; the dashboard's
+			// "seed capital" total filters to STABLECOINS at the orchestrator
+			// level, not here. This test documents the contract.
+			const deposits: BinanceDeposit[] = [
+				deposit("FDUSD", "100.00", 1_700_000_000_000),
+				deposit("USDT", "50.00", 1_700_000_001_000),
+				deposit("USDC", "25.00", 1_700_000_002_000),
+				deposit("BTC", "0.001", 1_700_000_003_000),
+			];
+			const result = computeTotalDeposited(deposits, []);
+			assert.deepStrictEqual(result, {
+				FDUSD: 100,
+				USDT: 50,
+				USDC: 25,
+				BTC: 0.001,
+			});
+		});
 	});
 });

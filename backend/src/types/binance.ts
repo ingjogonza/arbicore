@@ -129,6 +129,10 @@ export interface DashboardBotStatus {
  */
 export type CumulativeDeposits = Record<string, number>;
 
+/** Coins treated as 1:1 with USD for the "seed capital" total. */
+export const STABLECOINS = ["FDUSD", "USDT", "USDC"] as const;
+export type Stablecoin = (typeof STABLECOINS)[number];
+
 /**
  * @deprecated Replaced by `CumulativeDeposits`. The single-operation shape is
  * no longer used by the dashboard. Kept as a type alias only for any external

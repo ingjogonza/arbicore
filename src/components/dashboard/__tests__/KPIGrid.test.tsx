@@ -18,7 +18,7 @@ describe("KPIGrid", () => {
 		render(
 			<KPIGrid
 				cumulativeDeposits={{ FDUSD: 10.14 }}
-				totalDepositedFDUSD={10.14}
+				totalStablecoinDepositedUSD={10.14}
 				{...baseProps}
 			/>,
 		);
@@ -30,35 +30,50 @@ describe("KPIGrid", () => {
 		expect(screen.getByText(/Pending Fee/i)).toBeInTheDocument();
 	});
 
-	// ── Spec: Only FDUSD — no extra list ──
-	test("only FDUSD in the map shows the FDUSD total with no secondary list", () => {
+	// ── Spec: Only FDUSD — primary value in USD, no extra list ──
+	test("only FDUSD shows the USD total with the FDUSD entry as secondary", () => {
 		render(
 			<KPIGrid
 				cumulativeDeposits={{ FDUSD: 10.14 }}
-				totalDepositedFDUSD={10.14}
+				totalStablecoinDepositedUSD={10.14}
 				{...baseProps}
 			/>,
 		);
 
+		expect(screen.getByText("10.14 USD")).toBeInTheDocument();
 		expect(screen.getByText("10.14 FDUSD")).toBeInTheDocument();
-		// No extra coin list rendered.
-		expect(screen.queryByText(/0\.5 BTC/)).not.toBeInTheDocument();
-		expect(screen.queryByText(/250 USDT/)).not.toBeInTheDocument();
 	});
 
-	// ── Spec: Multiple coins — compact list of other coins ──
-	test("multiple coins show FDUSD primary and compact list of other coins", () => {
+	// ── Spec: Multiple stablecoins — compact list of stables only ──
+	test("multiple stablecoins show USD total and compact list of stables", () => {
 		render(
 			<KPIGrid
-				cumulativeDeposits={{ FDUSD: 10.14, BTC: 0.5, USDT: 250 }}
-				totalDepositedFDUSD={10.14}
+				cumulativeDeposits={{ FDUSD: 10.14, USDT: 250, USDC: 25 }}
+				totalStablecoinDepositedUSD={285.14}
 				{...baseProps}
 			/>,
 		);
 
+		expect(screen.getByText("285.14 USD")).toBeInTheDocument();
+		// Stablecoin list shows all three stables, ordered alphabetically.
+		expect(screen.getByText("10.14 FDUSD, 25.00 USDC, 250.00 USDT")).toBeInTheDocument();
+	});
+
+	// ── Spec: Non-stablecoin entries are excluded from the list ──
+	test("BTC and ETH deposits are not shown in the secondary list", () => {
+		render(
+			<KPIGrid
+				cumulativeDeposits={{ FDUSD: 10.14, BTC: 0.5, ETH: 0.1 }}
+				totalStablecoinDepositedUSD={10.14}
+				{...baseProps}
+			/>,
+		);
+
+		expect(screen.getByText("10.14 USD")).toBeInTheDocument();
 		expect(screen.getByText("10.14 FDUSD")).toBeInTheDocument();
-		// The compact list shows BTC and USDT but not FDUSD again.
-		expect(screen.getByText("0.50 BTC, 250.00 USDT")).toBeInTheDocument();
+		// BTC and ETH must NOT appear in the rendered list.
+		expect(screen.queryByText(/0\.50 BTC/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/0\.10 ETH/)).not.toBeInTheDocument();
 	});
 
 	// ── Spec: Empty map — fallback label ──
@@ -66,14 +81,29 @@ describe("KPIGrid", () => {
 		render(
 			<KPIGrid
 				cumulativeDeposits={{}}
-				totalDepositedFDUSD={12.5}
+				totalStablecoinDepositedUSD={12.5}
 				{...baseProps}
 			/>,
 		);
 
 		expect(screen.getByText("Sin depósitos detectados")).toBeInTheDocument();
 		// Fallback value still displayed.
-		expect(screen.getByText("12.50 FDUSD")).toBeInTheDocument();
+		expect(screen.getByText("12.50 USD")).toBeInTheDocument();
+	});
+
+	// ── Spec: Map with only non-stablecoins — fallback label ──
+	test("map with only non-stablecoins shows fallback label", () => {
+		render(
+			<KPIGrid
+				cumulativeDeposits={{ BTC: 0.5, ETH: 0.1 }}
+				totalStablecoinDepositedUSD={0}
+				{...baseProps}
+			/>,
+		);
+
+		expect(screen.getByText("Sin depósitos detectados")).toBeInTheDocument();
+		// No stablecoin list rendered.
+		expect(screen.queryByText(/0\.50 BTC/)).not.toBeInTheDocument();
 	});
 
 	// ── Other KPIs unchanged ──
@@ -81,7 +111,7 @@ describe("KPIGrid", () => {
 		render(
 			<KPIGrid
 				cumulativeDeposits={{ FDUSD: 10.14 }}
-				totalDepositedFDUSD={10.14}
+				totalStablecoinDepositedUSD={10.14}
 				{...baseProps}
 			/>,
 		);
@@ -93,7 +123,7 @@ describe("KPIGrid", () => {
 		render(
 			<KPIGrid
 				cumulativeDeposits={{ FDUSD: 10.14 }}
-				totalDepositedFDUSD={10.14}
+				totalStablecoinDepositedUSD={10.14}
 				{...baseProps}
 			/>,
 		);
@@ -105,7 +135,7 @@ describe("KPIGrid", () => {
 		render(
 			<KPIGrid
 				cumulativeDeposits={{ FDUSD: 10.14 }}
-				totalDepositedFDUSD={10.14}
+				totalStablecoinDepositedUSD={10.14}
 				currentBalance={8000}
 				grossProfit={-2000}
 				performance="-20.00"
@@ -120,7 +150,7 @@ describe("KPIGrid", () => {
 		render(
 			<KPIGrid
 				cumulativeDeposits={{ FDUSD: 10.14 }}
-				totalDepositedFDUSD={10.14}
+				totalStablecoinDepositedUSD={10.14}
 				currentBalance={8000}
 				grossProfit={-2000}
 				performance="-20.00"

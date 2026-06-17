@@ -50,7 +50,7 @@ const defaultDashboardData = {
 		{ asset: "BTC", free: "0.50000000", locked: "0.00000000" },
 	],
 	cumulativeDeposits: { FDUSD: 12500 },
-	totalDepositedFDUSD: 12500,
+	totalStablecoinDepositedUSD: 12500,
 	trades: [
 		{
 			id: 1,
